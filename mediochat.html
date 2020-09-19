@@ -50,19 +50,35 @@
                         <h2 class="heading">Mediochat: Web-based video appointments</h2>
                         <div class="content">    
                             <p>
-                                DESCRIPTION HERE
-                            <br><br>
+                                Mediochat is online web-based video appointment application that allows doctors and GPs to call their patients remotely, through video calls.<br><br>
+                                The project was developed as a hobby during the summer of 2020, using the ongoing COVID-19 pandemic as inspiration to build a <i>MedTech</i> web app. The system was designed to be a real-world app, hoping it could help reduce the strain on the medical services who were overloaded due to the pandemic. The entire project was finished in around a month (I did not spend too much time on it per day).
+                                <br><br>
+                                The website was implemented using NodeJS (using Express for the web server) and Firebase in the backend to manage authentication and data storage. The frontend, created with vanilla JS (and Bootstrap), dealt with the video calling functionality (which included a text chat) using the browser’s native APIs (WebRTC) and web sockets.
+                                <br><br>
+                                Some of the important features are:
+                                <ul>
+                                    <li>
+                                        Doctor's can schedule appointments with patients
+                                    </li>
+                                    <li>
+                                        Email alerts for patients (scheduled appointment, cancellation, change of time)
+                                    </li>
+                                    <li>
+                                        A simple and intuitive dashboard for doctors
+                                    </li>
+                                    <li>
+                                        A straightforward experience for patients to enter the video call
+                                    </li>
+                                </ul>
+                            </p>
 
-                            The video below shows how the web app works: 
+                            The video below shows how the web app works:
                             <!-- 16:9 aspect ratio -->
-                            <div class="embed-responsive embed-responsive-16by9">
+                            <div class="embed-responsive embed-responsive-16by9" style="margin-top: 10px;">
                                 <iframe class="embed-responsive-item" src="//www.youtube.com/embed/YE7VzlLtp-4"></iframe>
                             </div>
-
-                            Here is a short demo showing off the usage from a doctor's point of view, including the dashboard: 
-                            <img src="assets/images/projects/debugger.png" class="img-fluid" />
-
-                            <br><br>
+                            <br>
+                            <p>Some ideas to improve the project in the future are: support for other browsers/platforms (ie: mobile), conversation transcript generation (using ML)...</p>
                            <strong>What I learnt:</strong>
                            <ul>
                                 <li>
@@ -92,7 +108,7 @@
                         <h2 class="heading">About</h2>
                         <div class="content">
                             <p class="intro">
-                                I'm a first year MEng Computing student at Imperial College London actively looking for summer internships in the industry.
+                                I'm a second year MEng Computing student at Imperial College London actively looking for summer internships in the industry.
                             </p>
 
                             <b><a href="assets/docs/cv.pdf">You can view my CV here</a></b>
