@@ -15,7 +15,7 @@
     <meta property="og:description" content="We look at how to implement a fully optimised SPSC queue, for high-throughput message passing" />
     <meta property="og:url" content="http://localhost:2368/spsc-queue/" />
     <meta property="article:published_time" content="2021-12-28T12:31:35.000Z" />
-    <meta property="article:modified_time" content="2021-12-28T12:32:41.000Z" />
+    <meta property="article:modified_time" content="2021-12-28T22:34:52.000Z" />
     <meta property="article:publisher" content="https://www.facebook.com/ghost" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Implementing an optimised SPSC queue for low-latency message passing" />
@@ -55,7 +55,7 @@
     "headline": "Implementing an optimised SPSC queue for low-latency message passing",
     "url": "http://localhost:2368/spsc-queue/",
     "datePublished": "2021-12-28T12:31:35.000Z",
-    "dateModified": "2021-12-28T12:32:41.000Z",
+    "dateModified": "2021-12-28T22:34:52.000Z",
     "description": "We look at how to implement a fully optimised SPSC queue, for high-throughput message passing",
     "mainEntityOfPage": {
         "@type": "WebPage",
@@ -1183,13 +1183,13 @@ bool dequeue(T&amp; item) {
 
 </code></pre>
 <p>Compiling and running our benchmark again with our new queue implementation, we obtain:</p>
-<pre><code>Mean:   96,271,380 elems/s
-Median: 95,943,674 elems/s
-Min:    94,201,445 elems/s
-Max:    99,235,973 elems/s
+<pre><code>Mean:   101,138,856 elems/s
+Median: 101,566,018 elems/s
+Min:    97,563,021 elems/s
+Max:    102,558,883 elems/s
 </code></pre>
-<p>We have more than doubled our initial throughput, reaching nearly 100 million items per second. A fantastic improvement! Obviously, the results shown throughout this post are dependent on your hardware, but we have clearly optimised the queue, starting from a simple implementation and finishing with a cache-efficient queue.</p>
-<h2 id="closing-thoughts">Closing thoughts</h2><p>We have gone from considering a naive SPSC queue using sequentially consistent operations, introducing weaker memory orderings and improving cache efficiency by understanding the hardware, to obtain a high-throughput low-latency message passing queue.</p><p>I find this process of benchmarking and tuning very interesting, especially when seeing that your initial theories drawn up on paper can be translated into big performance boosts in practice.</p><p>There are further micro-optimisations you can try and profile, such as ensuring the buffer size is a power of two (in order to avoid performing integer division), using huge pages to reduce TLB misses during virtual address translation, etc.</p>
+<p>We have more than doubled our initial throughput, reaching 100 million items per second. A fantastic improvement! Obviously, the results shown throughout this post are dependent on your hardware, but we have clearly optimised the queue, starting from a simple implementation and finishing with a cache-efficient queue.</p>
+<p>The code for the queue and the benchmark can be found <a href="https://github.com/thealexcons/spsc-queue">here</a>.</p><h2 id="closing-thoughts">Closing thoughts</h2><p>We have gone from considering a naive SPSC queue using sequentially consistent operations, introducing weaker memory orderings and improving cache efficiency by understanding the hardware, to obtain a high-throughput low-latency message passing queue.</p><p>I find this process of benchmarking and tuning very interesting, especially when seeing that your initial theories drawn up on paper can be translated into big performance boosts in practice.</p><p>There are further micro-optimisations you can try and profile, such as ensuring the buffer size is a power of two (in order to avoid performing integer division), using huge pages to reduce TLB misses during virtual address translation, etc.</p>
 
             </section>
 
