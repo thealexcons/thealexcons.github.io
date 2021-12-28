@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+    <title>Implementing an optimised SPSC queue for low-latency message passing</title>
+
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <meta name="description" content="">
+
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Implementing an optimised SPSC queue for low-latency message passing">
+    <meta name="twitter:description" content="">
+
+    <meta property="og:url" content="http://localhost:2368">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Implementing an optimised SPSC queue for low-latency message passing">
+    <meta property="og:description" content="">
+    <meta property="og:site_name" content="Alex Constantin-Gomez&#x27;s Blog">
+
+    <meta itemprop="name" content="Implementing an optimised SPSC queue for low-latency message passing">
+    <meta itemprop="description" content="">
+
+    <meta name="twitter:site" content="@yourblogtwitter">
+
+<meta name="twitter:creator" content="@yourtwitter">
+
+<meta property="article:author" content="https://www.facebook.com/yourprofile">
+
+<meta property="article:publisher" content="https://www.facebook.com/yourblogprofile">
+
+<meta property="fb:admins" content="">
+
+<meta name="google-site-verification" content="">
+
+<link rel="author" href="https://plus.google.com/yourprofile">
+
+<meta name="theme-color" content="">
+
+    <link href="../favicon.ico" rel="shortcut icon" type="image/x-icon">
+    <link href="../apple-touch-icon-precomposed.png" rel="apple-touch-icon">
+
+    <link href="http://fonts.googleapis.com/" rel="dns-prefetch">
+    <link href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400&amp;subset=latin,latin-ext" rel="stylesheet">
+
+    <link rel="stylesheet" href="../assets/css/main.min.css%3Fv=4d302b610b.css">
+
+    <script type="text/javascript">
+      var ga_ua = 'UA-XXXXX-X';
+
+var disqus_shortname = 'example';
+
+var enable_pjax = true;
+
+      // Pace Options
+      // ==============
+      window.paceOptions = {
+        catchupTime: 100,
+        minTime: 100,
+        elements: false,
+        restartOnRequestAfter: 500,
+        startOnPageLoad: false
+      }
+
+      // Ghostium Globals
+      // ==============
+      window.GHOSTIUM = {};
+      GHOSTIUM.haveGA = typeof ga_ua !== 'undefined' && ga_ua !== 'UA-XXXXX-X';
+      GHOSTIUM.haveDisqus = typeof disqus_shortname !== 'undefined' && disqus_shortname !== 'example';
+      GHOSTIUM.enablePjax = typeof enable_pjax !== 'undefined' ? enable_pjax : true;
+    </script>
+
+    <script src="../assets/js/head-scripts.min.js%3Fv=4d302b610b"></script>
+
+    <link rel="canonical" href="index.html" />
+    <meta name="referrer" content="no-referrer-when-downgrade" />
+    <link rel="amphtml" href="amp/index.html" />
+    
+    <meta property="og:site_name" content="Alex Constantin-Gomez&#x27;s Blog" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Implementing an optimised SPSC queue for low-latency message passing" />
+    <meta property="og:description" content="We look at how to implement a fully optimised SPSC queue, for high-throughput message passing" />
+    <meta property="og:url" content="http://localhost:2368/spsc-queue/" />
+    <meta property="article:published_time" content="2021-12-28T12:31:35.000Z" />
+    <meta property="article:modified_time" content="2021-12-28T12:32:41.000Z" />
+    <meta property="article:publisher" content="https://www.facebook.com/ghost" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Implementing an optimised SPSC queue for low-latency message passing" />
+    <meta name="twitter:description" content="We look at how to implement a fully optimised SPSC queue, for high-throughput message passing" />
+    <meta name="twitter:url" content="http://localhost:2368/spsc-queue/" />
+    <meta name="twitter:label1" content="Written by" />
+    <meta name="twitter:data1" content="Alex Constantin-Gomez" />
+    <meta name="twitter:site" content="@ghost" />
+    
+    <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "publisher": {
+        "@type": "Organization",
+        "name": "Alex Constantin-Gomez&#x27;s Blog",
+        "url": "http://localhost:2368/",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "http://localhost:2368/favicon.ico",
+            "width": 48,
+            "height": 48
+        }
+    },
+    "author": {
+        "@type": "Person",
+        "name": "Alex Constantin-Gomez",
+        "image": {
+            "@type": "ImageObject",
+            "url": "//www.gravatar.com/avatar/cdc6df19dcd5c2fa40b372ff495478d3?s=250&d=mm&r=x",
+            "width": 250,
+            "height": 250
+        },
+        "url": "http://localhost:2368/author/alex/",
+        "sameAs": []
+    },
+    "headline": "Implementing an optimised SPSC queue for low-latency message passing",
+    "url": "http://localhost:2368/spsc-queue/",
+    "datePublished": "2021-12-28T12:31:35.000Z",
+    "dateModified": "2021-12-28T12:32:41.000Z",
+    "description": "We look at how to implement a fully optimised SPSC queue, for high-throughput message passing",
+    "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "http://localhost:2368/"
+    }
+}
+    </script>
+
+    <meta name="generator" content="Ghost 4.32" />
+    <link rel="alternate" type="application/rss+xml" title="Alex Constantin-Gomez&#x27;s Blog" href="../rss/index.html" />
+    
+    <script defer src="../public/cards.min.js%3Fv=4d302b610b"></script><style>:root {--ghost-accent-color: #3465a4;}</style>
+    <link rel="stylesheet" type="text/css" href="../public/cards.min.css%3Fv=4d302b610b.css">
+  </head>
+  <body class="post-template">
+
+    <button data-action="open-drawer" id="drawer-button" class="drawer-button"><i class="fa fa-bars"></i></button>
+<nav tabindex="-1" class="drawer">
+  <div class="drawer-container">
+    <!--.drawer-search(role="search")-->
+    <ul role="navigation" class="drawer-list">
+      
+<li class="drawer-list-item">
+  <a href="../index.html" data-pjax>
+    <i class="fa fa-home"></i>Home
+  </a>
+</li>
+<li class="drawer-list-item">
+  <a href="../about-me/index.html" data-pjax>
+    <i class="fa fa-info"></i>About Me
+  </a>
+</li>
+<li class="drawer-list-divider"></li>
+<li class="drawer-list-item drawer-list-title">
+  Links
+</li>
+<li class="drawer-list-item">
+  <a href="https://github.com/thealexcons" target="_blank">
+    <i class="fa fa-github"></i>Github
+  </a>
+</li>
+<li class="drawer-list-item">
+  <a href="https://www.linkedin.com/in/alexconstantin-gomez/" target="_blank">
+    <i class="fa fa-linkedin"></i>LinkedIn
+  </a>
+</li>
+    </ul>
+  </div>
+</nav>
+
+    <div class="drawer-overlay"></div>
+    <main id="container" role="main" class="container">
+      <div class="surface">
+        <div class="surface-container">
+          <div data-pjax-container class="content">
+            
+<section class="wrapper wrapper-post">
+  <div class="wrapper-container">
+    <article itemscope itemtype="http://schema.org/BlogPosting" role="article" class="post post no-image">
+        <section class="post-container">
+          <header class="post-header">
+            <ul class="post-meta-list">
+              <li class="post-meta-item">
+                <time datetime="2021-12-28" itemprop="datePublished">
+                  31 minutes ago
+                </time>
+              </li>
+              <li class="post-meta-item">
+                <a href="index.html#disqus_thread" data-disqus-identifier="61ca4526b67ce12190e4f7d3">Comments</a>
+              </li>
+            </ul>
+            <h1 itemprop="name headline" class="post-title"><a href="index.html" itemprop="url" data-pjax title="Implementing an optimised SPSC queue for low-latency message passing">Implementing an optimised SPSC queue for low-latency message passing</a></h1>
+            <!--h2 itemprop="about" class="post-subtitle"></h2-->
+          </header>
+          <aside class="post-side">
+            <div class="post-author">
+              <div class="post-author-info">
+                <a href="index.html" class="post-author-name">
+                  
+                </a>
+                <p class="post-author-bio"></p>
+              </div>
+            </div>
+          </aside>
+          <div itemprop="articleBody" class="post-body">
+            <p></p><h2 id="background">Background</h2><p>A single-producer single-consumer queue is a FIFO buffer that acts as a message passing mechanism between two threads (the producer and the consumer). This can be especially useful when a thread produces (or receives) data which should then be passed onto another thread for processing. </p><p>An example of where these queues are used are in algorithmic trading systems, where a thread receives market data over the network, deserialises the data into an internal representation and passes it to another thread which actually uses the market data in a meaningful way (such as updating the state of the orderbook).</p><p>Naturally, in a multi-threaded environment, we may decide to have multiple producers and multiple consumers passing data around. However, this requires a more careful implementation to avoid data races and often, using locks which can lead to lower performance (due to context switches). Although implementations without using mutexes <a href="https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue">exist</a> (via atomic RMWs), they are not technically lock-free nor trivial to implement.</p><p>On the other hand, if we have exactly 2 threads (one writer and one reader) sharing the queue, it is possible to implement a wait-free SPSC queue using only atomic loads and stores (no RMW loops!).</p><blockquote>A wait-free algorithm means that all the threads in the system make progress regardless of contention and the operations are executed in a finite number of steps.</blockquote><p>This is largely why SPSC queues are commonly found in high-throughput multi-threaad systems: they are very fast and fairly easy to implement.</p><h2 id="v1-a-simple-wait-free-spsc-queue">V1: A simple wait-free SPSC queue</h2><!--kg-card-begin: markdown--><p>We will implement the queue as a circular ring buffer using <code>std::vector</code> as the underlying container. We also need to keep track of the <code>head</code> and <code>tail</code> fields, which are atomically updated. The queue will have a bounded capacity, which is specified on construction.</p>
+<!--kg-card-end: markdown--><!--kg-card-begin: markdown--><pre><code class="language-c++">template &lt;typename T&gt;
+class SpscQueue {
+private:
+    std::vector&lt;T&gt; buffer_;
+    std::atomic&lt;size_t&gt; head_;
+    std::atomic&lt;size_t&gt; tail_;
+    
+public:
+    SpscQueue(size_t cap) : buffer_(cap + 1), head_(0), tail_(0) {
+        assert(cap + 1 &gt; 0);      // prevent overflow
+    }
+    
+    ...
+}
+</code></pre>
+<!--kg-card-end: markdown--><p>Notice that we are actually providing the capacity plus one to the vector. The reason for this is that we require one item in the queue to distinguish when the queue is empty or full, such that our empty/full conditions are given by:</p><!--kg-card-begin: markdown--><ul>
+<li>Is empty? <code>head_ == tail_</code></li>
+<li>Is full?  <code>head_ == (tail_ + 1) % queue_size</code></li>
+</ul>
+<!--kg-card-end: markdown--><p>Given this information, we can implement our enqueue and dequeue methods. The code is given first and then explained:</p><!--kg-card-begin: markdown--><pre><code class="language-c++">bool enqueue(const T&amp; item) {
+    const size_t t = tail_.load(std::memory_order_relaxed);
+    const size_t next_t = (t + 1) % buffer_.size();
+
+    if (next_t == head_.load(std::memory_order_acquire)) {
+        return false;
+    }
+
+    buffer_[t] = item;
+    tail_.store(next_t, std::memory_order_release);
+    return true;
+}
+
+bool dequeue(T&amp; item) {
+    const size_t h = head_.load(std::memory_order_relaxed);
+
+    if (h == tail_.load(std::memory_order_acquire)) {
+        return false;
+    }
+
+    item = buffer_[h];
+    const size_t next_h = (h + 1) % buffer_.size();
+    head_.store(next_h, std::memory_order_release);
+    return true;
+}
+
+</code></pre>
+<!--kg-card-end: markdown--><p>As you can see, there are no atomic RMW loops or blocking operations, so both methods are guaranteed to be wait-free and lock-free.</p><!--kg-card-begin: markdown--><p>Let's start with <code>enqueue()</code>. We first check that the queue is not full by comparing the next possible tail index with the current head index. We use <code>std::memory_order_acquire</code> to synchronise with possible updates to the <code>head_</code> field by the consumer thread calling <code>dequeue()</code>.<br>
+We then store the item into the queue at the current tail and update the <code>tail_</code> field atomically to point to the next location. Because we want to synchronise with the <code>dequeue()</code> method, we use <code>std::memory_order_release</code> so that our local changes are visible to the other thread. This also happens to be our linearisation point, ie the point at which the <code>enqueue()</code> method appears to take effect.</p>
+<p>The reasoning for the <code>dequeue()</code> method is symmetric, but instead we check that the queue is not empty and update the  <code>head_</code> field atomically.</p>
+<!--kg-card-end: markdown--><p>Initially, I tried implementing the queue using only sequentially consistent atomic operations, however the performance is much worse (nearly x4 lower throughput). I recommend you benchmark an SC-only version of the queue to see how much slower it can be (due to memory barriers).</p><p>We can now benchmark this unoptimised implementation with a simple program consisting of two threads passing 100 million integers from one to the other, with a queue size of 100k. We measure how long it takes for the consumer thread to read all of the items.</p><p>We also pin the consumer and producer threads to different physical cores in our benchmark program. We will see why has makes an important point in the next section.</p><!--kg-card-begin: markdown--><p>We compile the benchmark with O3 optimisations and <code>-march=native</code>, and we obtain the following results (run over 10 iterations):</p>
+<pre><code>Mean:   46,247,967 elems/s
+Median: 46,477,813 elems/s
+Min:    44,271,890 elems/s
+Max:    46,672,184 elems/s
+</code></pre>
+<p>We are processing around 46 million elements per second, which is quite good, but we can do even better.</p>
+<!--kg-card-end: markdown--><h2 id="v2-eliminating-false-sharing">V2: Eliminating false sharing</h2><p>Going back to our class definition, we see that our head and tail fields are defined contiguously in memory. This can lead to <strong>false sharing</strong>, where thread 1 modifies one of the fields and this invalidates thread 2's cache line because both fields lie on the same cache line. This forces thread 2 to go to main memory to fetch the other field even though thread 1 did not change it.</p><p>We can easily fix this by adding enough padding between the two fields such that they end up falling on different cache lines. On most modern processors, an L1 cache line is typically 64 bytes, so we can align both fields at 64 bytes each. We can do this as follows in C++:</p><!--kg-card-begin: markdown--><pre><code class="language-c++">class SpscQueue {
+private:
+    std::vector&lt;T&gt; buffer_;
+    alignas(64) std::atomic&lt;size_t&gt; head_;
+    alignas(64) std::atomic&lt;size_t&gt; tail_;
+    
+...
+}
+</code></pre>
+<p>Our queue should no longer suffer from false sharing! Our new results show a slight improvement:</p>
+<pre><code>Mean:   49,357,127 elems/s
+Median: 49,245,343 elems/s
+Min:    47,540,700 elems/s
+Max:    50,012,641 elems/s
+</code></pre>
+<!--kg-card-end: markdown--><h2 id="v3-a-cache-optimised-queue">V3: A cache-optimised queue</h2><p>The final but substantial optimisation aims to improve cache usage and reduce cache misses (inspired by <a href="https://github.com/rigtorp/SPSCQueue">this</a>).</p><!--kg-card-begin: markdown--><p>Consider the case when the consumer calls <code>dequeue()</code> to read an item:</p>
+<ol>
+<li>The <code>head_</code> needs to be updated, so that cache line is loaded into the L1 cache in an <strong>exclusive state</strong>.</li>
+<li>The <code>tail_</code> needs to be read to check that the queue is not empty, so its cache line is loaded into the L1 cache in a <strong>shared state</strong>.</li>
+</ol>
+<p>Now, assume the producer calls <code>enqueue()</code> to push a new item:<br>
+3. The <code>head_</code> needs to be read (to check that it is not full), so it causes the consumer's cache line containing <code>head_</code> to transition into a shared state.<br>
+4. This causes cache coherency traffic, as the consumer needs to bring back the <code>head_</code> cache line into an exclusive state.</p>
+<p>A symmetric situation occurs the other way round, meaning that in the worst case, there will be <strong>one cache line transition from a shared state to an exclusive state</strong> for every read and write. In the <a href="https://en.wikipedia.org/wiki/MESI_protocol">MESI cache coherency protocol</a>, these transitions are considered cache misses and produce bus traffic.</p>
+<p>To reduce bus traffic, the producer and consumer threads will each have their own cached copies of the head and tail indices which can be used to avoid having to always load the <code>head_</code> or <code>tail_</code> when checking if the queue is empty or full.</p>
+<p>Essentially, when the consumer first observes that N items are available to read, it caches this information and the N-1 subsequent reads won’t need to read the <code>tail_</code>. Similarly when the producer first observes that N items are available for writing, it caches this information and the N-1 subsequent writes won’t need to read the <code>head_</code>.</p>
+<!--kg-card-end: markdown--><!--kg-card-begin: markdown--><p>Our cache-friendly implementation looks like this now:</p>
+<pre><code class="language-c++">bool enqueue(const T&amp; item) {
+    const size_t t = tail_.load(std::memory_order_relaxed);
+    const size_t next_t = (t + 1) % buffer_.size();
+
+    // Use the cached head first instead of loading the actual head from memory.
+    // If they are equal, then we know that the queue may be full, so only then load
+    // the actual value of head to check if currently full.
+    if (next_t == head_cached_) {
+        head_cached_ = head_.load(std::memory_order_acquire);
+        if (next_t == head_cached_) {
+            return false;
+        }
+    }
+
+    buffer_[t] = item;
+    tail_.store(next_t, std::memory_order_release);
+    return true;
+}
+
+bool dequeue(T&amp; item) {
+    const size_t h = head_.load(std::memory_order_relaxed);
+
+    // Use the cached tail first instead of loading the actual tail from memory.
+    // If they are equal, then we know that the queue may be empty, so only then load
+    // the actual value of tail to check if currently full.
+    if (h == tail_cached_) {
+        tail_cached_ = tail_.load(std::memory_order_acquire);
+        if (h == tail_cached_) {
+            return false;
+        }
+    }
+
+    item = buffer_[h];
+    const size_t next_h = (h + 1) % buffer_.size();
+    head_.store(next_h, std::memory_order_release);
+    return true;
+}
+
+</code></pre>
+<!--kg-card-end: markdown--><!--kg-card-begin: markdown--><p>Compiling and running our benchmark again with our new queue implementation, we obtain:</p>
+<pre><code>Mean:   96,271,380 elems/s
+Median: 95,943,674 elems/s
+Min:    94,201,445 elems/s
+Max:    99,235,973 elems/s
+</code></pre>
+<p>We have more than doubled our initial throughput, reaching nearly 100 million items per second. A fantastic improvement! Obviously, the results shown throughout this post are dependent on your hardware, but we have clearly optimised the queue, starting from a simple implementation and finishing with a cache-efficient queue.</p>
+<!--kg-card-end: markdown--><h2 id="closing-thoughts">Closing thoughts</h2><p>We have gone from considering a naive SPSC queue using sequentially consistent operations, introducing weaker memory orderings and improving cache efficiency by understanding the hardware, to obtain a high-throughput low-latency message passing queue.</p><p>I find this process of benchmarking and tuning very interesting, especially when seeing that your initial theories drawn up on paper can be translated into big performance boosts in practice.</p><p>There are further micro-optimisations you can try and profile, such as ensuring the buffer size is a power of two (in order to avoid performing integer division), using huge pages to reduce TLB misses during virtual address translation, etc.</p>
+          </div>
+          <footer class="post-footer">
+            <div itemprop="author" itemscope itemtype="http://schema.org/Person" class="post-author">
+              <div class="post-author-info">
+                <p class="post-info">
+                  <b class="post-info-title">Published on</b>
+                  <time class="post-date">December 28, 2021</time>
+                </p>
+              </div>
+            </div>
+            <div class="post-social">
+              <h4 class="post-footer-heading">Spread the word</h4>
+              <a href="index.html#" data-action="share-twitter"><i class="fa fa-fw fa-lg fa-twitter"></i></a>
+              <a href="index.html#" data-action="share-facebook"><i class="fa fa-fw fa-lg fa-facebook"></i></a>
+            </div>
+          </footer>
+        </section>
+    </article>
+
+    <footer role="contentinfo" class="footer">
+  <p><small>© 2021. All Rights Reserved.</small></p>
+  <p><small><a href="http://ghostium.oswaldoacauan.com/" target="_blank">Ghostium Theme</a> by <a href="http://twitter.com/oswaldoacauan" target="_blank">@oswaldoacauan</a></small></p>
+  <p><small>Proudly published with <a href="http://ghost.org" target="_blank">Ghost</a></small></p>
+</footer>
+  </div>
+</section>
+
+
+
+          </div>
+        </div>
+      </div>
+    </main>
+
+    
+
+    <script src="../assets/js/foot-scripts.min.js%3Fv=4d302b610b"></script>
+
+    <script type="text/javascript">
+
+      if(GHOSTIUM.haveGA) {
+        (function(g,h,o,s,t,z){g.GoogleAnalyticsObject=s;g[s]||(g[s]=
+        function(){(g[s].q=g[s].q||[]).push(arguments)});g[s].s=+new Date;
+        t=h.createElement(o);z=h.getElementsByTagName(o)[0];
+        t.src='//www.google-analytics.com/analytics.js';
+        z.parentNode.insertBefore(t,z)}(window,document,'script','ga'));
+        ga('create',ga_ua);ga('send','pageview');
+      }
+
+      if(GHOSTIUM.haveDisqus) {
+        (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = '//' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+        }());
+      }
+    </script>
+  </body>
+</html>
