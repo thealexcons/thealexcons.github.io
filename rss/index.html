@@ -1,4 +1,273 @@
-<?xml version="1.0" encoding="UTF-8"?><rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><title><![CDATA[Alex Constantin-Gomez's Blog]]></title><description><![CDATA[Some posts, tutorials and notes for self reference on different topics of software engineering.]]></description><link>http://localhost:2368/</link><image><url>http://localhost:2368/favicon.png</url><title>Alex Constantin-Gomez&apos;s Blog</title><link>http://localhost:2368/</link></image><generator>Ghost 4.32</generator><lastBuildDate>Tue, 28 Dec 2021 22:35:33 GMT</lastBuildDate><atom:link href="http://localhost:2368/rss/" rel="self" type="application/rss+xml"/><ttl>60</ttl><item><title><![CDATA[Implementing an optimised SPSC queue for low-latency message passing]]></title><description><![CDATA[We look at how to implement a fully optimised SPSC queue, for high-throughput message passing]]></description><link>http://localhost:2368/spsc-queue/</link><guid isPermaLink="false">61ca4526b67ce12190e4f7d3</guid><dc:creator><![CDATA[Alex Constantin-Gomez]]></dc:creator><pubDate>Tue, 28 Dec 2021 12:31:35 GMT</pubDate><content:encoded><![CDATA[<p></p><h2 id="background">Background</h2><p>A single-producer single-consumer queue is a FIFO buffer that acts as a message passing mechanism between two threads (the producer and the consumer). This can be especially useful when a thread produces (or receives) data which should then be passed onto another thread for processing. </p><p>An example of where these queues are used are in algorithmic trading systems, where a thread receives market data over the network, deserialises the data into an internal representation and passes it to another thread which actually uses the market data in a meaningful way (such as updating the state of the orderbook).</p><p>Naturally, in a multi-threaded environment, we may decide to have multiple producers and multiple consumers passing data around. However, this requires a more careful implementation to avoid data races and often, using locks which can lead to lower performance (due to context switches). Although implementations without using mutexes <a href="https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue">exist</a> (via atomic RMWs), they are not technically lock-free nor trivial to implement.</p><p>On the other hand, if we have exactly 2 threads (one writer and one reader) sharing the queue, it is possible to implement a wait-free SPSC queue using only atomic loads and stores (no RMW loops!).</p><blockquote>A wait-free algorithm means that all the threads in the system make progress regardless of contention and the operations are executed in a finite number of steps.</blockquote><p>This is largely why SPSC queues are commonly found in high-throughput multi-threaad systems: they are very fast and fairly easy to implement.</p><h2 id="v1-a-simple-wait-free-spsc-queue">V1: A simple wait-free SPSC queue</h2><!--kg-card-begin: markdown--><p>We will implement the queue as a circular ring buffer using <code>std::vector</code> as the underlying container. We also need to keep track of the <code>head</code> and <code>tail</code> fields, which are atomically updated. The queue will have a bounded capacity, which is specified on construction.</p>
+<?xml version="1.0" encoding="UTF-8"?><rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><title><![CDATA[Alex Constantin-Gomez's Blog]]></title><description><![CDATA[Some posts, tutorials and notes for self reference on different topics of software engineering.]]></description><link>http://localhost:2368/</link><image><url>http://localhost:2368/favicon.png</url><title>Alex Constantin-Gomez&apos;s Blog</title><link>http://localhost:2368/</link></image><generator>Ghost 4.32</generator><lastBuildDate>Thu, 30 Dec 2021 12:54:44 GMT</lastBuildDate><atom:link href="http://localhost:2368/rss/" rel="self" type="application/rss+xml"/><ttl>60</ttl><item><title><![CDATA[Writing custom memory allocators in C++]]></title><description><![CDATA[<p></p><h2 id="introduction">Introduction</h2><!--kg-card-begin: markdown--><p>An essential part of memory management is how memory is allocated and eventually deallocated. By default, memory in C++ programs is allocated using the <code>new</code> keyword and deallocated using the <code>delete</code> keyword. However, sometimes we want more control over how and where objects are allocated/deallocated to avoid issues</p>]]></description><link>http://localhost:2368/custom-memory-allocators/</link><guid isPermaLink="false">61cc8a2de7f77539899bef87</guid><dc:creator><![CDATA[Alex Constantin-Gomez]]></dc:creator><pubDate>Thu, 30 Dec 2021 12:54:15 GMT</pubDate><content:encoded><![CDATA[<p></p><h2 id="introduction">Introduction</h2><!--kg-card-begin: markdown--><p>An essential part of memory management is how memory is allocated and eventually deallocated. By default, memory in C++ programs is allocated using the <code>new</code> keyword and deallocated using the <code>delete</code> keyword. However, sometimes we want more control over how and where objects are allocated/deallocated to avoid issues like fragmentation.</p>
+<p>The C++ standard library allows programmers to write custom allocators which can be used by STL containers for dynamic memory allocation, rather than using the standard allocator.</p>
+<p>Allocators can be used to improve performance-related issues such as fragmentation, per-thread allocation and NUMA-friendly allocation.</p>
+<p>We will see some examples in this post and their benefits, but before we should mention the different properties and requirements an allocator should have in C++.</p>
+<!--kg-card-end: markdown--><h2 id="the-allocator-api">The allocator API</h2><!--kg-card-begin: markdown--><p>In C++, an allocator is a template class that allocates and deallocates memory for a specific type T. There are two types of allocators:</p>
+<ul>
+<li><strong>Equal</strong> allocators: two equal allocators can be used to allocate and deallocate memory for a type T interchangeably. These are usually <strong>stateless</strong> allocators.</li>
+<li><strong>Unequal</strong> allocators: two unequeal allocators cannot be used to allocate and deallocate memory interchangeably. These are usually <strong>stateful</strong> allocators.</li>
+</ul>
+<p>An allocator class should offer a <code>T* allocate(size_t n)</code> method to allocate <code>n</code> number of objects of type <code>T</code> and a <code>void deallocate(T* p, size_t n)</code> method to deallocate an object of type <code>T</code>.</p>
+<p>Additionally, we need to provide an empty copy constructor using a template of type <code>U</code> for full compatibility with STL containers, because the container may also need to allocate internal objects (such as linked list nodes) in addition to objects of type <code>T</code>.</p>
+<p>The most simple allocator using <code>malloc()</code> can be implemented as follows:</p>
+<pre><code class="language-c++">template &lt;typename T&gt;
+class SimpleAllocator {
+public:
+    using value_type = T;
+
+    SimpleAllocator() = default;
+    
+    template &lt;typename U&gt;
+    SimpleAllocator(const SimpleAllocator&lt;U&gt;&amp; other) {
+        (void) other;
+    }
+    
+    T* allocate(size_t n) {
+        auto ptr = static_cast&lt;T*&gt;(malloc(sizeof(T) * n));
+        if (ptr)
+            return ptr;
+            
+        throw std::bad_alloc();
+    }
+    
+    void deallocate(T* ptr, size_t n) {
+        (void) n;
+        free(ptr);
+    }
+};
+</code></pre>
+<p>Because this is a stateless allocator and just uses <code>malloc()</code>, this is an equal allocator, so it is good practice to define the following equality operators for our allocator:</p>
+<pre><code class="language-c++">template &lt;typename T, typename U&gt;
+bool operator==(const SimpleAllocator&lt;T&gt;&amp; a1, const SimpleAllocator&lt;U&gt;&amp; a2) {
+    (void) a1; (void) a2;
+    return true;
+}
+
+template &lt;typename T, typename U&gt;
+bool operator!=(const SimpleAllocator&lt;T&gt;&amp; a1, const SimpleAllocator&lt;U&gt;&amp; a2) {
+    (void) a1; (void) a2;
+    return false;
+}
+</code></pre>
+<p>In C++17, you can avoid manually writing the two equality operators above by adding the property <code>using is_always_equal = std::true_type</code> if the allocator is equal (or <code>std::false_type</code> if unequal).</p>
+<p>Because <code>SimpleAllocator</code> is an equal allocator, it is legal to do the following:</p>
+<pre><code class="language-c++">SimpleAllocator&lt;double&gt; a1;
+SimpleAllocator&lt;double&gt; a2;
+
+double* ptr = a1.allocate(1);   // allocate a double with a1
+a2.deallocate(ptr, 1);          // deallocate the memory with a2
+</code></pre>
+<!--kg-card-end: markdown--><h2 id="example-1-a-stateless-cache-aligned-allocator">Example 1: A stateless cache-aligned allocator</h2><p>As an extension to our first stateless allocator which does nothing interesting, we will now implement an allocator that actually does something useful. In this case, our allocator will automatically eliminate false sharing in an STL container being accessed by multiple threads.</p><p>Briefly, the solution to false sharing is to align the shared memory locations such that they end up in different cache lines. On x86 CPUs, L1 cache lines are 64 bytes, so our allocator should allocate objects at 64 byte boundaries. Here is the code:</p><!--kg-card-begin: markdown--><pre><code class="language-c++">template &lt;typename T, size_t Alignment = 64&gt;
+class CacheAlignedAllocator {
+public:
+    using value_type = T;
+    using is_always_equal = std::true_type;
+
+    template &lt;typename U&gt;
+    struct rebind {
+        using other = CacheAlignedAllocator&lt;U, Alignment&gt;;
+    };
+
+    CacheAlignedAllocator() = default;
+
+    template &lt;typename U&gt;
+    CacheAlignedAllocator(const CacheAlignedAllocator&lt;U, Alignment&gt;&amp; other) {
+        (void) other;
+    }
+
+    T* allocate(size_t n) {
+        auto ptr = static_cast&lt;T*&gt;(aligned_alloc(Alignment, sizeof(T) * n));
+        if (ptr)
+            return ptr;
+
+        throw std::bad_alloc();
+    }
+
+    void deallocate(T* ptr, size_t n) {
+        (void) n;
+        free(ptr);
+    }
+};
+</code></pre>
+<p>For allocation, we use C++&apos;s builtin function <code>aligned_alloc()</code>. Everything else is the same, except for the <code>struct rebind</code>. Typically, this struct is generated by the compiler automatically for us but because our allocator takes in more than one template argument (in case the user wants to supply a different alignment amount), we must manually define our own rebind struct (which is used by STL containers to create new allocators without having to call the copy constructor).</p>
+<p>You can now specify the custom allocator as a policy template argument to an STL container and verify that all allocations are indeed 64-byte aligned (by inserting a print statement in the <code>allocate</code> method):</p>
+<pre><code>std::vector&lt;int, CacheAlignedAllocator&lt;int&gt;&gt; vec;
+for (int i = 0; i &lt; 5; i++) {
+    vec.emplace_back(i);
+}
+</code></pre>
+<p>Running <a href="https://github.com/thealexcons/cpp-allocators/blob/master/cache_aligned_allocator.cc">this benchmark</a> I have prepared to demonstrate the effects of false sharing in a multi-threaded program, for 10 iterations, I obtain:</p>
+<pre><code>        std::allocator mean: 2470 ms
+CachedAlignedAllocator mean: 2192 ms
+</code></pre>
+<p>Measuring latency in this case may not be fully representative because it takes into account thread creation and context switching which adds jitter to the result. However, you can look at the L1 cache misses using <code>perf</code> on Linux and verify that we get less L1 cache misses using the custom allocator.</p>
+<!--kg-card-end: markdown--><h2 id="example-2-a-stateful-pool-allocator">Example 2: A stateful pool allocator</h2><p>Now, we look at a classic use case of custom memory allocators: a pool allocator. The goal of a pool-based allocator is to quickly allocate memory for a fixed-type objects while reducing internal fragmentation of memory.</p><!--kg-card-begin: markdown--><p>Pool allocators work by allocating large blocks of memory in advance and dividing this block for individual allocations. This means that memory allocation is much faster than calling <code>malloc()</code>, which is slow.</p>
+<p>Because a pool allocator has to manage a list of blocks, it is a <strong>stateful</strong> allocator (and therefore unequal).<br>
+Firstly, we need to create a <code>Pool</code> class that manages the memory of chunks of a given size. We use a stack of addresses to quickly pop an available address when we need to allocate an object and push back a newly available address when we deallocate an object at that address.</p>
+<pre><code class="language-c++">template &lt;size_t BlockSize, size_t ReservedBlocks = 0&gt;
+class Pool {
+private:
+    size_t size_;
+    std::stack&lt;void *&gt; addrs_;
+    std::stack&lt;std::unique_ptr&lt;uint8_t[]&gt;&gt; blocks_;
+
+public:
+    explicit Pool(size_t size) : size_(size) {
+        for (size_t i = 0; i &lt; ReservedBlocks; i++) {
+            add_more_addresses();
+        }
+    }
+
+    void* allocate() {
+        if (addrs_.empty()) {
+            add_more_addresses();
+        }
+
+        auto ptr = addrs_.top();
+        addrs_.pop();
+        return ptr;
+    }
+
+    void deallocate(void *ptr) {
+        addrs_.push(ptr);
+    }
+
+    void rebind(size_t size) {
+        if (!(addrs_.empty() &amp;&amp; blocks_.empty())) {
+            std::cerr &lt;&lt; &quot;Cannot call Pool::rebind() after alloc\n&quot;;
+            abort();
+        }
+
+        size_ = size;
+    }
+
+private:
+    // Refill the address stack by allocating another block of memory
+    void add_more_addresses() {
+        auto block = std::make_unique&lt;uint8_t[]&gt;(BlockSize);
+        auto total_size = BlockSize % size_ == 0 ? 
+                            BlockSize : BlockSize - size_;
+
+        // Divide the block into chunks of size_ bytes, and add their addrs
+        for (size_t i = 0; i &lt; total_size; i += size_) {
+            addrs_.push(&amp;block.get()[i]);
+        }
+
+        // Keep the memory of the block alive by adding it to our stack
+        blocks_.push(std::move(block));
+    }
+};
+</code></pre>
+<p>In our constructor, we specify the fixed-size number of bytes we want to allocate (this will be passed in later as <code>sizeof(T)</code>) and we reserve memory blocks if specified by the template parameter.</p>
+<p>Importantly, we use a <code>std::unique_ptr</code> to automatically free the memory when we are done using the allocator.</p>
+<p>The <code>allocate()</code> method will simply return the first address on the stack in O(1) time (unless the stack is empty) and our <code>deallocate()</code> just puts back the address onto the stack.<br>
+We also provide a <code>rebind()</code> method to keep STL containers happy.</p>
+<p>Now, we need to create the actual <code>PoolAllocator</code> class which manages a <code>Pool</code> instance:</p>
+<pre><code class="language-c++">template &lt;typename T, size_t BlockSize = 4096, size_t ReservedBlocks = 0&gt;
+class PoolAllocator {
+private:
+    using PoolType = Pool&lt;BlockSize, ReservedBlocks&gt;;
+    std::shared_ptr&lt;PoolType&gt; pool_;
+
+public:
+    using value_type = T;
+    using is_always_equal = std::false_type;
+
+    template &lt;typename U&gt;
+    struct rebind {
+        using other = PoolAllocator&lt;U, BlockSize, ReservedBlocks&gt;;
+    };
+
+    PoolAllocator() : pool_(std::make_shared&lt;PoolType&gt;(sizeof(T))) {}
+
+    // Rebind copy constructor
+    template &lt;typename U&gt;
+    PoolAllocator(const PoolAllocator&lt;U&gt;&amp; other) : pool_{other.pool_} {
+        pool_-&gt;rebind(sizeof(T));
+    }
+
+    PoolAllocator(const PoolAllocator&amp; other) = default;
+    PoolAllocator(PoolAllocator&amp;&amp; other) = default;
+    PoolAllocator&amp; operator=(const PoolAllocator&amp; other) = default;
+    PoolAllocator&amp; operator=(PoolAllocator&amp;&amp; other) = default;
+
+    T* allocate(size_t n) {
+        if (n &gt; 1) {
+            return static_cast&lt;T*&gt;(malloc(sizeof(T) * n));
+        }
+
+        return static_cast&lt;T*&gt;(pool_-&gt;allocate());
+    }
+
+    void deallocate(T* ptr, size_t n) {
+        if (n &gt; 1) {
+            free(ptr);
+            return;
+        }
+
+        pool_-&gt;deallocate(ptr);
+    }
+};
+</code></pre>
+<p>Our allocator class looks very similar as our previous one. The constructor creates a <code>Pool</code> instance which will be used to allocate and deallocate memory. The <code>allocate()</code> and <code>deallocate()</code> methods simply pass the call onto the <code>pool_</code> instance. Note that our allocator only supports individual allocations: if n &gt; 1, we simply use the standard allocator via <code>malloc()</code> and <code>free()</code>.</p>
+<p>We must also provide a <code>struct rebind</code> because our class has more than one template parameter and a rebind copy constructor which just passes the call down to the <code>pool_</code> instance. We also need to provide default copy/move constructors and assignment operators.</p>
+<p>Our benchmark in this case will measure the time it takes to add 1 million integers to a <code>std::list</code> (see the code <a href="https://github.com/thealexcons/cpp-allocators/blob/master/pool_allocator.cc">here</a>). We compare the standard allocator, a pool allocator with no reserved blocks in-advance, one with 100 reserved blocks and another with 1000 reserved blocks:</p>
+<pre><code>std::allocator&lt;int&gt;            mean: 21611 &#x3BC;s
+PoolAllocator&lt;int&gt;             mean: 12885 &#x3BC;s
+PoolAllocator&lt;int, 4096, 100&gt;  mean: 5718 &#x3BC;s
+PoolAllocator&lt;int, 4096, 1000&gt; mean: 5686 &#x3BC;s
+</code></pre>
+<p>Even without reserving blocks in advance, we get around x2 speed up! And as expected, if we reserve blocks in advance, we get a x3.85 speed up.</p>
+<!--kg-card-end: markdown--><!--kg-card-begin: markdown--><p>Pool allocators are so useful that they were <a href="https://en.cppreference.com/w/cpp/memory/synchronized_pool_resource">introduced</a> into the standard library in C++17. You can access them in the <code>&lt;pmr&gt;</code> header (<em>polymorphic memory resource</em>) and use them nicely with STL containers.</p>
+<!--kg-card-end: markdown--><h2 id="example-3-a-huge-page-allocator">Example 3: A <em>huge page</em> allocator</h2><p>Our final example is just to show off how you can write highly-tailored allocators using a specific feature of Linux: transparent huge pages.</p><p>Typically, the OS will allocate memory in fixed-size pages of 4 kB. However, if we have a very large in-memory data structure spanning multiple pages which may be randomly accessed (such as a hash table), we are likely going to suffer from a high number of TLB misses during virtual address translation. The OS can reduce this miss rate by allocating large-sized pages, known as <strong>huge pages</strong>. These are typically 2 MB, but can be even larger.</p><!--kg-card-begin: markdown--><p>A <em>transparent</em> huge page is one that was promoted automatically by the OS from a regular page into a huge page, and is a Linux-specific feature. We can enable THP support for a memory range using the <code>madvise()</code> system call, however Linux does not guarantee that a HP will be allocated. We can use <code>posix_memalign</code> to hint at the kernel that we really want to allocate a huge page. Let&apos;s see the code:</p>
+<pre><code class="language-c++">template &lt;typename T, size_t HugePageSize = 1 &lt;&lt; 21&gt; 
+class THPAllocator {
+public:
+    using is_always_equal = std::true_type;
+    using value_type = T;
+
+    template &lt;typename U&gt;
+    struct rebind {
+        using other = THPAllocator&lt;U, HugePageSize&gt;;
+    };
+
+    THPAllocator() = default;
+
+    template &lt;class U&gt;
+    constexpr THPAllocator(const THPAllocator&lt;U&gt;&amp; other) {
+        (void) other;
+    }
+
+    T *allocate(size_t n) {
+        if (n &gt; std::numeric_limits&lt;std::size_t&gt;::max() / sizeof(T)) {
+            throw std::bad_alloc();
+        }
+        const auto total_size = n * sizeof(T);
+        void *p = nullptr;
+        if (posix_memalign(&amp;p, HugePageSize, total_size) != 0) {
+            throw std::bad_alloc();
+        }
+        
+        madvise(p, total_size, MADV_HUGEPAGE);
+        if (p == nullptr) {
+            throw std::bad_alloc();
+        }
+
+        return static_cast&lt;T *&gt;(p);
+    }
+
+    void deallocate(T *p, size_t n) { 
+        (void) n;
+        free(p); 
+    }
+};
+</code></pre>
+<p>Our <a href="https://github.com/thealexcons/cpp-allocators/blob/master/huge_page_allocator.cc">benchmark</a> is very simple: we try to add 8 MB worth of integers to a vector and see how long it takes. We obtain:</p>
+<pre><code>std::allocator mean: 4414 &#x3BC;s
+THPAllocator   mean: 2584 &#x3BC;s
+</code></pre>
+<p>It is also worth noting that requesting the kernel to promote a regular page into a huge page may cause latency spikes, because the kernel needs to update the page tables accordingly. Also, the kernel may decide to compact unused pages in order to create a huge page on demand, which can also lead to latency spikes. If you try running the benchmark with <code>iterations = 1</code>, you will see the large variance.</p>
+<!--kg-card-end: markdown--><h2 id="closing-thoughts">Closing thoughts</h2><p>We have seen how C++ easily lets us implement custom memory allocators for different applications and use cases. The C++ allocator API can go into much more detail and I am not an expert on memory allocators, this post is just an example highlighting the benefits of memory allocators and a simple demo on how to implement them.</p>]]></content:encoded></item><item><title><![CDATA[Implementing an optimised SPSC queue for low-latency message passing]]></title><description><![CDATA[We look at how to implement a fully optimised SPSC queue, for high-throughput message passing]]></description><link>http://localhost:2368/spsc-queue/</link><guid isPermaLink="false">61ca4526b67ce12190e4f7d3</guid><dc:creator><![CDATA[Alex Constantin-Gomez]]></dc:creator><pubDate>Tue, 28 Dec 2021 12:31:35 GMT</pubDate><content:encoded><![CDATA[<p></p><h2 id="background">Background</h2><p>A single-producer single-consumer queue is a FIFO buffer that acts as a message passing mechanism between two threads (the producer and the consumer). This can be especially useful when a thread produces (or receives) data which should then be passed onto another thread for processing. </p><p>An example of where these queues are used are in algorithmic trading systems, where a thread receives market data over the network, deserialises the data into an internal representation and passes it to another thread which actually uses the market data in a meaningful way (such as updating the state of the orderbook).</p><p>Naturally, in a multi-threaded environment, we may decide to have multiple producers and multiple consumers passing data around. However, this requires a more careful implementation to avoid data races and often, using locks which can lead to lower performance (due to context switches). Although implementations without using mutexes <a href="https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue">exist</a> (via atomic RMWs), they are not technically lock-free nor trivial to implement.</p><p>On the other hand, if we have exactly 2 threads (one writer and one reader) sharing the queue, it is possible to implement a wait-free SPSC queue using only atomic loads and stores (no RMW loops!).</p><blockquote>A wait-free algorithm means that all the threads in the system make progress regardless of contention and the operations are executed in a finite number of steps.</blockquote><p>This is largely why SPSC queues are commonly found in high-throughput multi-threaad systems: they are very fast and fairly easy to implement.</p><h2 id="v1-a-simple-wait-free-spsc-queue">V1: A simple wait-free SPSC queue</h2><!--kg-card-begin: markdown--><p>We will implement the queue as a circular ring buffer using <code>std::vector</code> as the underlying container. We also need to keep track of the <code>head</code> and <code>tail</code> fields, which are atomically updated. The queue will have a bounded capacity, which is specified on construction.</p>
 <!--kg-card-end: markdown--><!--kg-card-begin: markdown--><pre><code class="language-c++">template &lt;typename T&gt;
 class SpscQueue {
 private:
