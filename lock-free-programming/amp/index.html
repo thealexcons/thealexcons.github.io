@@ -4,23 +4,23 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
 
-    <title>Implementing an optimised SPSC queue for low-latency message passing</title>
+    <title>Lock-free programming, explained by a student</title>
 
     <link rel="canonical" href="../index.html" />
     <meta name="referrer" content="no-referrer-when-downgrade" />
     
     <meta property="og:site_name" content="Alex Constantin-Gomez" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="Implementing an optimised SPSC queue for low-latency message passing" />
-    <meta property="og:description" content="We look at how to implement a fully optimised SPSC queue, for high-throughput message passing" />
-    <meta property="og:url" content="http://localhost:2368/spsc-queue/" />
-    <meta property="article:published_time" content="2021-12-28T12:31:35.000Z" />
-    <meta property="article:modified_time" content="2021-12-28T22:34:52.000Z" />
+    <meta property="og:title" content="Lock-free programming, explained by a student" />
+    <meta property="og:description" content="In this post, I attempt to explain the fundamental concepts required to write lock-free programs." />
+    <meta property="og:url" content="http://localhost:2368/lock-free-programming/" />
+    <meta property="article:published_time" content="2022-01-03T23:30:05.000Z" />
+    <meta property="article:modified_time" content="2022-01-03T23:30:05.000Z" />
     <meta property="article:publisher" content="https://www.facebook.com/ghost" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Implementing an optimised SPSC queue for low-latency message passing" />
-    <meta name="twitter:description" content="We look at how to implement a fully optimised SPSC queue, for high-throughput message passing" />
-    <meta name="twitter:url" content="http://localhost:2368/spsc-queue/" />
+    <meta name="twitter:title" content="Lock-free programming, explained by a student" />
+    <meta name="twitter:description" content="In this post, I attempt to explain the fundamental concepts required to write lock-free programs." />
+    <meta name="twitter:url" content="http://localhost:2368/lock-free-programming/" />
     <meta name="twitter:label1" content="Written by" />
     <meta name="twitter:data1" content="Alex Constantin-Gomez" />
     <meta name="twitter:site" content="@ghost" />
@@ -52,11 +52,11 @@
         "url": "http://localhost:2368/author/alex/",
         "sameAs": []
     },
-    "headline": "Implementing an optimised SPSC queue for low-latency message passing",
-    "url": "http://localhost:2368/spsc-queue/",
-    "datePublished": "2021-12-28T12:31:35.000Z",
-    "dateModified": "2021-12-28T22:34:52.000Z",
-    "description": "We look at how to implement a fully optimised SPSC queue, for high-throughput message passing",
+    "headline": "Lock-free programming, explained by a student",
+    "url": "http://localhost:2368/lock-free-programming/",
+    "datePublished": "2022-01-03T23:30:05.000Z",
+    "dateModified": "2022-01-03T23:30:05.000Z",
+    "description": "In this post, I attempt to explain the fundamental concepts required to write lock-free programs.",
     "mainEntityOfPage": {
         "@type": "WebPage",
         "@id": "http://localhost:2368/"
@@ -1051,145 +1051,52 @@
         <article class="post">
 
             <header class="post-header">
-                <h1 class="post-title">Implementing an optimised SPSC queue for low-latency message passing</h1>
+                <h1 class="post-title">Lock-free programming, explained by a student</h1>
                 <section class="post-meta">
                     Alex Constantin-Gomez -
-                    <time class="post-date" datetime="2021-12-28">28 Dec 2021</time>
+                    <time class="post-date" datetime="2022-01-03">03 Jan 2022</time>
                 </section>
             </header>
             <section class="post-content">
 
-                <p></p><h2 id="background">Background</h2><p>A single-producer single-consumer queue is a FIFO buffer that acts as a message passing mechanism between two threads (the producer and the consumer). This can be especially useful when a thread produces (or receives) data which should then be passed onto another thread for processing. </p><p>An example of where these queues are used are in algorithmic trading systems, where a thread receives market data over the network, deserialises the data into an internal representation and passes it to another thread which actually uses the market data in a meaningful way (such as updating the state of the orderbook).</p><p>Naturally, in a multi-threaded environment, we may decide to have multiple producers and multiple consumers passing data around. However, this requires a more careful implementation to avoid data races and often, using locks which can lead to lower performance (due to context switches). Although implementations without using mutexes <a href="https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue">exist</a> (via atomic RMWs), they are not technically lock-free nor trivial to implement.</p><p>On the other hand, if we have exactly 2 threads (one writer and one reader) sharing the queue, it is possible to implement a wait-free SPSC queue using only atomic loads and stores (no RMW loops!).</p><blockquote>A wait-free algorithm means that all the threads in the system make progress regardless of contention and the operations are executed in a finite number of steps.</blockquote><p>This is largely why SPSC queues are commonly found in high-throughput multi-threaad systems: they are very fast and fairly easy to implement.</p><h2 id="v1-a-simple-wait-free-spsc-queue">V1: A simple wait-free SPSC queue</h2><p>We will implement the queue as a circular ring buffer using <code>std::vector</code> as the underlying container. We also need to keep track of the <code>head</code> and <code>tail</code> fields, which are atomically updated. The queue will have a bounded capacity, which is specified on construction.</p>
-<pre><code class="language-c++">template &lt;typename T&gt;
-class SpscQueue {
-private:
-    std::vector&lt;T&gt; buffer_;
-    std::atomic&lt;size_t&gt; head_;
-    std::atomic&lt;size_t&gt; tail_;
-    
-public:
-    SpscQueue(size_t cap) : buffer_(cap + 1), head_(0), tail_(0) {
-        assert(cap + 1 &gt; 0);      // prevent overflow
-    }
-    
-    ...
-}
-</code></pre>
-<p>Notice that we are actually providing the capacity plus one to the vector. The reason for this is that we require one item in the queue to distinguish when the queue is empty or full, such that our empty/full conditions are given by:</p><ul>
-<li>Is empty? <code>head_ == tail_</code></li>
-<li>Is full?  <code>head_ == (tail_ + 1) % queue_size</code></li>
+                <p><small><strong>Disclaimer</strong>: Before starting, I want to highlight that I am fairly new to lock-free programming and still have a lot to learn. This post is intended for me to self-study and revisit in the future if needed, and is based on what I have learnt so far as a CS undergraduate and researching online.</small></p>
+<h2 id="introduction">Introduction</h2><p>Lock-free programming is often described as programming with locking and unlocking mutexes. While this is true, it is only a "subset" of the actual definition. A lock-free program/algorithm refers to code that cannot cause the system to lock up, such as a deadlock or livelock. In other words, there is no possible scheduling of threads and executions that would lead to a <em>locked-up</em> state. This means that the whole system makes progress as a whole, ie: at least one thread makes progress. As long as a program is able to invoke lock-free operations, the number of completed invocations keeps increasing no matter what.</p><p>Another common term in the world of lock-free programming is <em>wait-free</em>. The latter refers to a program where every thread makes progress and execute in a finite number of steps, regardless of contention. In that sense, <em>wait-free</em> is a strict subset of <em>lock-free</em> and generally, writing wait-free code is harder. However, this post will focus on lock-free programming.</p><p>As part of lock-free programming, we need to go through atomics, memory models and orderings.</p><h2 id="memory-models">Memory models</h2><p>A memory model describes how memory is read from and written to and in what order. This typically means <em>how reads and writes may be reordered</em> and <em>what memory barriers</em> <em>can be used</em> to prevent certain reorderings. We can choose to describe how memory behaves at a hardware level or at a software level.</p><h3 id="hardware-memory-models">Hardware memory models</h3><p>The hardware memory model will characterise the CPU's ability to reorder memory operations. Stronger memory models refer to those that provide more guarantees about how memory operations may be reordered (ie: the stronger the model, the less types of reorderings it admits). The strongest memory model is sequential consistency (SC) however no architecture implements SC at a hardware level because it is too expensive and prevents many optimisations.</p><p>In <strong>x86</strong>, the memory model is known as <strong>Total Store Order</strong> (TSO). It allows write-read reordering on different memory locations, ie: <em>a read from location x can be reordered before a write to y</em>. This effect is achieved through <strong>store buffering</strong>: all writes are enqueued in a per-core store buffer, allowing later reads to "overtake" these buffered writes. These buffered writes will eventually be dequeued at non-deterministic times (a type of out-of-order execution), unless a memory barrier is issued to indicate that all writes should be immediately flushed.<br /><br />A weaker memory model is <strong>Partial Store Order</strong> (PSO), which is like TSO but allows write-write reordering, and an even weaker memory model is <strong>Relaxed Store Ordering</strong> (RSO), which allows even more reorderings. These weaker models can be found on SPARC, ARM and Alpha architectures. Therefore, x86 (TSO) is actually known to be a fairly strong memory model, as it only allows one type of reordering. </p><p>Because RSO is weaker than PSO and PSO is weaker than TSO, any TSO interleaving is also a possible PSO and RSO interleaving, but not necessarily the other way around.</p><h3 id="software-memory-models">Software memory models</h3><p>We can abstract away from the hardware and instead look at how we want our software to behave with regard to memory reorderings. Each architecture will have a set of memory barriers in their instruction set (<code>mfence</code> on x86) which allow us to prevent reordering in our code (more on memory barriers in the next section).</p>
+<p>We may choose to manually issue memory fence instructions, however it is common for the compiler to do that work for us when using a higher-level constructs, such as the <code>std::atomic</code> library in C++. We can tag atomic operations with a specific memory order and the compiler will emit the necessary memory barriers.</p>
+<p>An idealised and high-level memory model is <strong>sequential consistency</strong>. SC corresponds to interleaving semantics and makes it easy to reason about your program's correctness. However, as mentioned earlier, CPUs do not implement SC at the hardware level because it prevents optimisations. The way SC memory operations are achieved is by emitting a full memory barrier immediately after it, so that other threads see the effect of the operation. In C++, all atomic operations will work under SC semantics.</p><p>On the other extreme, we can choose not to insert any memory barriers at all and let the CPU reorder the instructions as it sees fit. In C/C++, this is known as <strong>relaxed ordering</strong> (not related to the RMO hardware model). The semantics of relaxed-tagged atomic operations will correspond to the memory model of the hardware.</p><p>Somewhere in between the two previous models, we have <strong>acquire-release</strong> ordering. This model will provide an ordering between atomic stores and loads. An atomic store can be tagged as release and an atomic load can be tagged as acquire. <br /><strong>Acquire</strong> semantics prevent memory reordering of the read-acquire operation with any other read or write operation that follows it.<br /><strong>Release</strong> semantics prevent memory reordering of the write-release operation with any other read or write operation that precedes it.<br />Depending on the architecture, acquire-release operations may require fewer memory barriers than SC.</p><p>Acquire-release orderings are perfect for message passing and can be used to implement <a href="https://github.com/thealexcons/spinlock/blob/master/active_backoff_spinlock.h">spinlocks</a>. In fact, the term "acquiring/releasing a lock" actually comes from the acquire-release memory semantics.</p><h3 id="types-of-memory-barriers">Types of memory barriers</h3><p>In lock-free programming, we want to make sure that the correct memory barriers are used/emitted by the compiler so that our program behaves correctly and enforces an ordering of instructions.</p><p>Since we have four types of reordering (read-read, read-write, write-read and write-write), we would require four memory fences. In practice, we usually don't see all four. For example, Linux provides three barriers that are sufficient for its supported architectures:</p><ul>
+<li><code>smp_mb()</code>, <strong>full memory barrier</strong> that orders both reads and writes (any operation before the barrier will be committed to memory before any operation after the barrier).</li>
+<li><code>smp_rmb()</code>, <strong>read memory barrier</strong> that orders reads.</li>
+<li><code>smp_wmb()</code>, <strong>write memory barrier</strong> that orders writes.</li>
 </ul>
-<p>Given this information, we can implement our enqueue and dequeue methods. The code is given first and then explained:</p><pre><code class="language-c++">bool enqueue(const T&amp; item) {
-    const size_t t = tail_.load(std::memory_order_relaxed);
-    const size_t next_t = (t + 1) % buffer_.size();
-
-    if (next_t == head_.load(std::memory_order_acquire)) {
-        return false;
-    }
-
-    buffer_[t] = item;
-    tail_.store(next_t, std::memory_order_release);
-    return true;
-}
-
-bool dequeue(T&amp; item) {
-    const size_t h = head_.load(std::memory_order_relaxed);
-
-    if (h == tail_.load(std::memory_order_acquire)) {
-        return false;
-    }
-
-    item = buffer_[h];
-    const size_t next_h = (h + 1) % buffer_.size();
-    head_.store(next_h, std::memory_order_release);
-    return true;
-}
-
-</code></pre>
-<p>As you can see, there are no atomic RMW loops or blocking operations, so both methods are guaranteed to be wait-free and lock-free.</p><p>Let's start with <code>enqueue()</code>. We first check that the queue is not full by comparing the next possible tail index with the current head index. We use <code>std::memory_order_acquire</code> to synchronise with possible updates to the <code>head_</code> field by the consumer thread calling <code>dequeue()</code>.<br />
-We then store the item into the queue at the current tail and update the <code>tail_</code> field atomically to point to the next location. Because we want to synchronise with the <code>dequeue()</code> method, we use <code>std::memory_order_release</code> so that our local changes are visible to the other thread. This also happens to be our linearisation point, ie the point at which the <code>enqueue()</code> method appears to take effect.</p>
-<p>The reasoning for the <code>dequeue()</code> method is symmetric, but instead we check that the queue is not empty and update the  <code>head_</code> field atomically.</p>
-<p>Initially, I tried implementing the queue using only sequentially consistent atomic operations, however the performance is much worse (nearly x4 lower throughput). I recommend you benchmark an SC-only version of the queue to see how much slower it can be (due to memory barriers).</p><p>We can now benchmark this unoptimised implementation with a simple program consisting of two threads passing 100 million integers from one to the other, with a queue size of 100k. We measure how long it takes for the consumer thread to read all of the items.</p><p>We also pin the consumer and producer threads to different physical cores in our benchmark program. We will see why has makes an important point in the next section.</p><p>We compile the benchmark with O3 optimisations and <code>-march=native</code>, and we obtain the following results (run over 10 iterations):</p>
-<pre><code>Mean:   46,247,967 elems/s
-Median: 46,477,813 elems/s
-Min:    44,271,890 elems/s
-Max:    46,672,184 elems/s
-</code></pre>
-<p>We are processing around 46 million elements per second, which is quite good, but we can do even better.</p>
-<h2 id="v2-eliminating-false-sharing">V2: Eliminating false sharing</h2><p>Going back to our class definition, we see that our head and tail fields are defined contiguously in memory. This can lead to <strong>false sharing</strong>, where thread 1 modifies one of the fields and this invalidates thread 2's cache line because both fields lie on the same cache line. This forces thread 2 to go to main memory to fetch the other field even though thread 1 did not change it.</p><p>We can easily fix this by adding enough padding between the two fields such that they end up falling on different cache lines. On most modern processors, an L1 cache line is typically 64 bytes, so we can align both fields at 64 bytes each. We can do this as follows in C++:</p><pre><code class="language-c++">class SpscQueue {
-private:
-    std::vector&lt;T&gt; buffer_;
-    alignas(64) std::atomic&lt;size_t&gt; head_;
-    alignas(64) std::atomic&lt;size_t&gt; tail_;
-    
-...
-}
-</code></pre>
-<p>Our queue should no longer suffer from false sharing! Our new results show a slight improvement:</p>
-<pre><code>Mean:   49,357,127 elems/s
-Median: 49,245,343 elems/s
-Min:    47,540,700 elems/s
-Max:    50,012,641 elems/s
-</code></pre>
-<h2 id="v3-a-cache-optimised-queue">V3: A cache-optimised queue</h2><p>The final but substantial optimisation aims to improve cache usage and reduce cache misses (inspired by <a href="https://github.com/rigtorp/SPSCQueue">this</a>).</p><p>Consider the case when the consumer calls <code>dequeue()</code> to read an item:</p>
+<p>For more details on memory barriers and hardware, I would strongly recommend reading <a href="http://www.rdrop.com/users/paulmck/scalability/paper/whymb.2010.07.23a.pdf">this paper</a> by Paul E. McKenney.</p><h2 id="atomic-operations">Atomic operations</h2><p>In a multithreaded program where multiple threads read/write shared memory, we need to somehow synchronise accesses to avoid unwanted data races. This can be done with mutexes or with the appropriate synchronisation provided by atomic operations.</p><p>An atomic operation is one that manipulates memory in an indivisible way, such that no threads can observe the operation half-complete. On most processors nowadays, many operations are already atomic. For example, reads and writes of native types (those that fit in the memory bus, such as integers) which are aligned are atomic. For example, on x86 reads and writes to 64-bit-sized locations are atomic. This why you can write code such as <code>std::atomic&lt;int&gt; x</code> or <code>std::atomic&lt;long&gt; y</code> in C++: the compiler will align these memory locations and just use standard <code>MOV</code> operations to atomically read the values. You can use <code>std::atomic&lt;T&gt;::is_lock_free</code> in C++ to verify that the type T can be atomically read/written without using locks.</p>
+<p>You can go a step further than loading and storing data atomically by using <strong>Read-Modify-Write</strong> (RMW) operations. As the name indicates, they allow you to perform more complex transactions atomically. They're crucial in lock-free code when multiple threads want to write to the same location because when they attempt an RMW on that location, the RMWs effectively become linearisable and execute one-at-a-time, in a line.</p><h2 id="compare-and-swap">Compare-And-Swap</h2><p>The most important RMW operation is compare-and-swap (CAS). A CAS operation will compare the shared atomic value with an expected value, and if equal, it will update the shared location with a new value. In this case, the CAS is successful and returns true. If not equal, we say the CAS is unsuccessful and it returns false.</p><p>It is the only RMW that is absolutely essential, since every other RMW such as <code>fetch_add()</code> or <code>exchange()</code> can be implemented using CAS.</p>
+<p>Often, we use <strong>CAS loops</strong> to repeatedly attempt a transaction until successful. This pattern typically involves:</p>
 <ol>
-<li>The <code>head_</code> needs to be updated, so that cache line is loaded into the L1 cache in an <strong>exclusive state</strong>.</li>
-<li>The <code>tail_</code> needs to be read to check that the queue is not empty, so its cache line is loaded into the L1 cache in a <strong>shared state</strong>.</li>
+<li>Copying a shared variable to a local variable (private to other threads)</li>
+<li>Performing some speculative work using the local variable</li>
+<li>Attempting to publish any changes to the shared variable using CAS</li>
 </ol>
-<p>Now, assume the producer calls <code>enqueue()</code> to push a new item:<br />
-3. The <code>head_</code> needs to be read (to check that it is not full), so it causes the consumer's cache line containing <code>head_</code> to transition into a shared state.<br />
-4. This causes cache coherency traffic, as the consumer needs to bring back the <code>head_</code> cache line into an exclusive state.</p>
-<p>A symmetric situation occurs the other way round, meaning that in the worst case, there will be <strong>one cache line transition from a shared state to an exclusive state</strong> for every read and write. In the <a href="https://en.wikipedia.org/wiki/MESI_protocol">MESI cache coherency protocol</a>, these transitions are considered cache misses and produce bus traffic.</p>
-<p>To reduce bus traffic, the producer and consumer threads will each have their own cached copies of the head and tail indices which can be used to avoid having to always load the <code>head_</code> or <code>tail_</code> when checking if the queue is empty or full.</p>
-<p>Essentially, when the consumer first observes that N items are available to read, it caches this information and the N-1 subsequent reads won’t need to read the <code>tail_</code>. Similarly when the producer first observes that N items are available for writing, it caches this information and the N-1 subsequent writes won’t need to read the <code>head_</code>.</p>
-<p>Our cache-friendly implementation looks like this now:</p>
-<pre><code class="language-c++">bool enqueue(const T&amp; item) {
-    const size_t t = tail_.load(std::memory_order_relaxed);
-    const size_t next_t = (t + 1) % buffer_.size();
-
-    // Use the cached head first instead of loading the actual head from memory.
-    // If they are equal, then we know that the queue may be full, so only then load
-    // the actual value of head to check if currently full.
-    if (next_t == head_cached_) {
-        head_cached_ = head_.load(std::memory_order_acquire);
-        if (next_t == head_cached_) {
-            return false;
+<p>For example, we can implement a seemingly complex operation atomic and lock-free using a CAS loop. Below, we implement a function that atomically doubles a value if odd or increments it if even, and returns the old value:</p>
+<pre><code class="language-c++">int atomicDoubleOrIncrement(std::atomic&lt;int&gt;&amp; shared) {
+    int old = shared.load();
+    int new;
+    do {
+        if (old % 2 != 0) {
+            new = old * 2;
+        } else {
+            new = old + 1;
         }
-    }
-
-    buffer_[t] = item;
-    tail_.store(next_t, std::memory_order_release);
-    return true;
+    } while (!shared.compare_exchange_strong(old, new));
+    return old;
 }
-
-bool dequeue(T&amp; item) {
-    const size_t h = head_.load(std::memory_order_relaxed);
-
-    // Use the cached tail first instead of loading the actual tail from memory.
-    // If they are equal, then we know that the queue may be empty, so only then load
-    // the actual value of tail to check if currently full.
-    if (h == tail_cached_) {
-        tail_cached_ = tail_.load(std::memory_order_acquire);
-        if (h == tail_cached_) {
-            return false;
-        }
-    }
-
-    item = buffer_[h];
-    const size_t next_h = (h + 1) % buffer_.size();
-    head_.store(next_h, std::memory_order_release);
-    return true;
-}
-
 </code></pre>
-<p>Compiling and running our benchmark again with our new queue implementation, we obtain:</p>
-<pre><code>Mean:   101,138,856 elems/s
-Median: 101,566,018 elems/s
-Min:    97,563,021 elems/s
-Max:    102,558,883 elems/s
-</code></pre>
-<p>We have more than doubled our initial throughput, reaching 100 million items per second. A fantastic improvement! Obviously, the results shown throughout this post are dependent on your hardware, but we have clearly optimised the queue, starting from a simple implementation and finishing with a cache-efficient queue.</p>
-<p>The code for the queue and the benchmark can be found <a href="https://github.com/thealexcons/spsc-queue">here</a>.</p><h2 id="closing-thoughts">Closing thoughts</h2><p>We have gone from considering a naive SPSC queue using sequentially consistent operations, introducing weaker memory orderings and improving cache efficiency by understanding the hardware, to obtain a high-throughput low-latency message passing queue.</p><p>I find this process of benchmarking and tuning very interesting, especially when seeing that your initial theories drawn up on paper can be translated into big performance boosts in practice.</p><p>There are further micro-optimisations you can try and profile, such as ensuring the buffer size is a power of two (in order to avoid performing integer division), using huge pages to reduce TLB misses during virtual address translation, etc.</p>
+<p>The idea is that if the CAS fails due to a modification to <code>shared</code> by another thread, the local variable <code>old</code> gets updated to be the latest value of <code>shared</code> (in C++, if a CAS fails then it will update the expected parameter to contain the latest value) and we try again. You can think of the body of a CAS loop as a protected section that cannot be seen by other threads because we perform work using the local variable.</p>
+<p>The code above qualifies as lock-free because:</p>
+<ol>
+<li>if the CAS succeeds, then we break from the loop and the thread makes progress</li>
+<li>if the CAS fails, then it must be because another thread updated the value first and their CAS was successful, so there is another thread that makes progress</li>
+</ol>
+<p>However, this function is not wait-free because only one thread can make progress at any given time and a thread's progress will depend on contention.</p>
+<h2 id="closing-thoughts">Closing thoughts</h2><p>Lock-free programming is hard, as it requires you to have a good understanding of a variety of topics that go all the way down to the hardware. I am still a novice in this area however I am really enjoying learning about it and writing this post has helped solidify my understanding of memory models, atomics, instruction reordering, etc.<br /></p>
 
             </section>
 
