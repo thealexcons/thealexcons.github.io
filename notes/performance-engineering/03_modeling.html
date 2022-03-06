@@ -1,0 +1,401 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Performance Modeling - Performance Engineering Notes</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="01_intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="02_profiling.html"><strong aria-hidden="true">2.</strong> Profiling</a></li><li class="chapter-item expanded "><a href="03_modeling.html" class="active"><strong aria-hidden="true">3.</strong> Performance Modeling</a></li><li class="chapter-item expanded "><a href="04_efficiency.html"><strong aria-hidden="true">4.</strong> Writing Efficient Code</a></li><li class="chapter-item expanded "><a href="05_parallelism.html"><strong aria-hidden="true">5.</strong> Multi-Core Systems and Parallelism</a></li><li class="chapter-item expanded "><a href="06_device_performance.html"><strong aria-hidden="true">6.</strong> System and Device Performance</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Performance Engineering Notes</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="lecture-3-performance-modeling"><a class="header" href="#lecture-3-performance-modeling">Lecture 3: Performance Modeling</a></h1>
+<p>This lecture is about coming up with analytical models for measuring performance. The primary reason for modeling is when we want to learn about a system's performance &quot;on the cheap&quot;, ie: without running the software. </p>
+<p>This is useful for when we may need to predict how much we may be charged for the execution of software (cloud services), 
+to know how many resources we need to provision a system, etc.</p>
+<p><strong>Assumptions:</strong></p>
+<ol>
+<li>
+<p>The input data follows a known distribution (usually uniform without correlation).</p>
+</li>
+<li>
+<p>We ignore system noise (caused by scheduling, external factors, etc.).</p>
+</li>
+<li>
+<p>We will model single-threaded deterministic code.</p>
+</li>
+</ol>
+<p>Under these assumptions, there are two approaches to modeling:</p>
+<ul>
+<li>
+<p><strong>Numerical/Experimental Model</strong>: we run the system, acquire a series of datapoints and come up with a predictive model.</p>
+</li>
+<li>
+<p><strong>Analytical Model</strong>: a formal characterisation of relationship between parameters and performance metrics, often expressed as an equation. </p>
+</li>
+</ul>
+<h2 id="numerical-models"><a class="header" href="#numerical-models">Numerical Models</a></h2>
+<p>The first step is to <strong>gather data</strong>. We do this through <em>microbenchmarks</em>, a small specially designed program used to test to performance behaviour of that small portion of the system.</p>
+<p>Throughout the lecture we will consider the following microbenchmark which tests the memory subsystem access performance:</p>
+<pre><code class="language-c">extern int* input;
+extern size_t N;      // some large constant
+extern size_t stride; // the parameter of our experiment
+
+int sum = 0;
+for (size_t i = 0; i &lt; N; i += stride) {
+  sum += input[stride];
+}
+</code></pre>
+<p>The next step is to <strong>interpret the results</strong> of the microbenchmark. A common interpretation technique is interpolation, where we draw a graph based on the datapoints we collected. It is not usually very accurate, but it is easy for humans to understand.</p>
+<p><strong>Advantages:</strong></p>
+<ul>
+<li>Easy to get (if the system is available to run)</li>
+<li>Based on ground truth (this is actual measured behaviour)</li>
+<li>Easy to interpret</li>
+</ul>
+<p><strong>Disadvantages:</strong></p>
+<ul>
+<li>They generalise poorly (cannot easily be applied to new environments, such as more CPUs, more memory, etc.)</li>
+<li>Massive amounts of experimental data needed for high-dimensinal parameter spaces</li>
+<li>Limited accuracy and prediction confidence</li>
+<li>Limited interpretability (contributing factors are implicit)</li>
+</ul>
+<h2 id="analytical-models"><a class="header" href="#analytical-models">Analytical Models</a></h2>
+<p>Analytical modeling requires detailed understanding of the system (the parameters and their effects) and extensive validation.</p>
+<p>Model fitting helps you convert empirical/numerical models into analytical models. One way to do this is through regression, which gives you an analytical linear equation describing the data.</p>
+<p>Note that the boundary is blurry: <em>interpolation is numerical while regression is analytical</em> can be argued. The key difference is that <strong>analytical models are more expressive</strong>.</p>
+<p>To obtain an analytical model, we need two components:</p>
+<ol>
+<li>
+<p><strong>Characteristic equation</strong>: an equation that describes the behaviour of the target metric of your experiment in dependence of a varied parameter (eg: <code>stride</code>).</p>
+</li>
+<li>
+<p><strong>Values for system parameters</strong> (eg: access latency, cache capacity...)</p>
+</li>
+</ol>
+<h3 id="example-1-building-an-analytical-model-for-memory-access-by-stride"><a class="header" href="#example-1-building-an-analytical-model-for-memory-access-by-stride">Example 1: Building an analytical model for memory access by stride</a></h3>
+<p>First, we need to understand the system we are trying to model. Below is a diagram of the memory subsystem:</p>
+<img src="assets/03_memory_subsystem.png" width="500px">
+<p>As such, we need to define our system parameters. For each level in the hierarchy, we have: a block size, the access latency and the capacity.</p>
+<img src="assets/03_system_parameters.png" width="450px">
+<p>Now, we can develop a characteristic equation for the access stride experiment:</p>
+<p>Let \( T_{mem} \) be the average time for a memory access and let \(s\) be the stride size in bytes.</p>
+<p>\(T_{mem} = l_0 \cdot min(1, \frac{s}{B_0}) + l_1 \cdot min(1, \frac{s}{B_1}) + l_2 \cdot min(1, \frac{s}{B_2}) + l_3 \cdot min(1, \frac{s}{B_3})\)</p>
+<p>Here, each term represents the latency to access layer \(n\) multiplied by the probability of missing layer \(n\) and going to the next layer. Naturally, the larger \(B_n\) is, there is a lower chance for missing at layer \(n\).</p>
+<h3 id="example-2-building-an-analytical-model-for-random-memory-access"><a class="header" href="#example-2-building-an-analytical-model-for-random-memory-access">Example 2: Building an analytical model for random memory access</a></h3>
+<p>Let's model this benchmark, where we have random access into the array <code>input2</code>:</p>
+<pre><code class="language-c">extern int* input1;   // uniform random data
+extern int* input2;   // random data
+
+int sum = 0;
+for (size_t i = 0; i &lt; inputSize; i++) {
+  sum += input2[input1[i]];
+}
+</code></pre>
+<p>First, let us define parameters in terms of memory regions and access patterns (see section 3 of <a href="http://www.vldb.org/conf/2002/S06P03.pdf">this paper</a>).</p>
+<ul>
+<li>The length of a memory region is \((R.n)\) (ie: the number of stored &quot;elements&quot;)</li>
+<li>The width of a memory region is \((R.w)\) (ie: the size of the tuple/struct in words)</li>
+<li>The total size of the region \(||R||\) (ie: \(n \cdot w\))</li>
+<li>The access pattern is \(u\) (ie: the distance between two accesses)</li>
+</ul>
+<p>In addition, we can model two types of access patterns:</p>
+<ul>
+<li>\(\text{Pattern 1} \oplus \text{Pattern 2}\) is the sequential execution of both access patterns.</li>
+<li>\(\text{Pattern 1} \odot \text{Pattern 2}\) is the interleaved execution of both access patterns (ie: doing two access in each iteration of a loop)</li>
+</ul>
+<p>If we suppose that <code>input1</code> contains 1024 uniform random ints and <code>input2</code> has 64 random ints, we can describe the access pattern in terms of an interleaved sequential traversal (into <code>input1</code>) and random access (into <code>input2</code>):</p>
+<p>\(s_{trav}(R.n = 1024, R.w = 1, u = 1) \odot rr_{acc}(R.n = 64, R.w = 1, u = 1, r = 1024)\)</p>
+<p>Here \(r\) represents the number of accesses. We have \(R.w = 1\) because we are storing integers (we assume integers are a word in size) and \(u = 1\) because our stride is 1 word.</p>
+<p>\(s_{trav}\) represents the sequential traversal while \(rr_{acc}\) represents the repetitive random access.</p>
+<p>We can do more interesting things, where <code>input1</code> is struct:</p>
+<pre><code class="language-c">struct record {int a; int b; int c;};
+extern record* input1;    // uniform random data, 1024 values
+extern int* input2;       // random data, 64 values
+
+int sum = 0;
+for (size_t i = 0; i &lt; inputSize; i++) {
+  sum += input2[input1[i].a];
+}
+</code></pre>
+<p>The access pattern description is:</p>
+<p>\(s_{trav}(R.n = 1024, R.w = 3, u = 1) \odot rr_{acc}( R.n = 64, R.w = 1, u = 1, r = 1024)\)</p>
+<p>From the paper, we support three different access patterns:</p>
+<ul>
+<li>Sequential traversal <em>\(s_{trav}\)</em>: a sequential sweep over all the values in R exactly once.</li>
+<li>Single random traversal <em>\(r_{trav}\)</em>: all elements are accessed exactly once but in a random order.</li>
+<li>Repetitive random access <em>\(rr_{acc}\)</em>: randomly accesses \(r\) values (may be hit more than once and some may not even be hit).</li>
+</ul>
+<br>
+<br>
+<h2 id="modeling-statefuldynamic-systems"><a class="header" href="#modeling-statefuldynamic-systems">Modeling stateful/dynamic systems</a></h2>
+<p>Some components can have a dynamic state, where each state can influence behaviour and performance. The analytical models we have seen so far are stateless.</p>
+<p>We can use <strong>stochastical methods</strong> to model stateful systems. We will focus on <strong>Discrete Markov Chains</strong>.</p>
+<p>A discrete Markov chain is basically a finite-state machine with transition probabilities. They have a property whereby the next state is only dependent on the previous state and a random variable.</p>
+<h3 id="example-modeling-branch-misprediction"><a class="header" href="#example-modeling-branch-misprediction">Example: Modeling branch misprediction</a></h3>
+<p>Consider the following microbenchmark:</p>
+<pre><code class="language-c">extern int* input;    // uniform random ints between 0 and 100
+
+int sum = 0;
+for (size_t i = 0; i &lt; inputSize; i++) {
+  if (input[i] &gt; threshold) {
+    sum += input[i];
+  }
+}
+</code></pre>
+<p>One of the factors contributing to the performance of this code is the <strong>branch misprediction rate</strong>. If <code>threshold</code> is set to 50, the branch predictor will be wrong more often than if it was set to &lt;20 or &gt;80 for example (because the data is random).</p>
+<p>We can model branch misprediction rate using a Markov chain:</p>
+<img src="assets/03_markov_branch_predictor.png">
+<p>The branch predictor starts in any of the shown states, which represents the <em>confidence</em> of the branch predictor based on whether the branch is actually taken or not.</p>
+<p>We can calculate the probability of it being in any state as the <strong>stationary distribution</strong>.</p>
+<p>The branch misprediction rate is then given by:</p>
+<p>\(( P(pred_taken) \cdot P(act_not_taken) ) + ( P(pred_not_taken) \cdot P(act_taken) )\)</p>
+<p>As you can see from the expression above, the worst case scenario is when we are in a <em>not taken state</em> but the branch is actually taken, or when we are in a <em>taken state</em> but the branch is not actually taken.</p>
+<p>We can model branch predictors with <strong>more states</strong> if we want to keep a deeper history of past branches and potentially get more accurate branch predictions.</p>
+<p>Modeling can be useful because you can verify results that have been stated and you take for granted.</p>
+<br>
+<br>
+<br>
+<h2 id="tutorial-exercise-notes"><a class="header" href="#tutorial-exercise-notes">Tutorial exercise notes</a></h2>
+<p>Attach to process, run the query a few times and then select the section where there is high activity.</p>
+<p>We get that <code>densescan_int</code> is the hotspot function (line 680 <code>scan_sel(densescan, _dense)</code> which is a macro).
+We can expand the macro by running the command in section 3.3 (fetches the source file <code>gdk_select.c</code>, puts it through a preprocessor and expands all macros).</p>
+<p>Running VTune now with the macro unfolded, we see the actual code which is a <code>for</code> loop and the difference <em>parameters</em> that affect performance.</p>
+<p>The behaviour is that we have a large array and we apply some predicate to it. If the predicate holds for the value, we record the index to some output data structure.</p>
+<p>We can now write a microbenchmark:</p>
+<pre><code class="language-c++">long long inputSize = 128 * 1024 * 1024;
+
+static void selection(benchmark::State&amp; state) {
+  auto value = state.range(0);
+  auto input = new int[inputSize];
+
+  std::default_random_engine generator;
+  std::uniform_int_distribution&lt;int&gt; distribution(1, 501);
+  auto getValue = std::bind(distribution, generator);
+
+  for (size_t i = 0; i &lt; inputSize; i++)
+    input[i] = getValue();
+
+  auto output = new int[inputSize];
+  size_t j = 0;
+  for (auto _ : state) {
+    for (size_t i = 0; i &lt; inputSize; i++) {
+      if (input[i] &lt; value) { // check predicate with input argument
+        output[j++] = i;      // write the index if true
+      }
+    }
+    benchmark::DoNotOptimize(ouput);  // important!
+  }
+  benchmark::DoNotOptimize(input);
+  delete[] input;
+}
+
+BENCHMARK(selection)
+  -&gt;Arg(0*50)
+  -&gt;Arg(1*50)
+  -&gt;Arg(2*50)
+  ...
+  -&gt;Arg(10*50)
+
+</code></pre>
+<p>This code snippet suffers from <strong>branch misprediction</strong> (the inverse parabola curve), where the performance is good during the start, worsens around the middle and then improves again towards the end.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="02_profiling.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next" href="04_efficiency.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="02_profiling.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next" href="04_efficiency.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3000/__livereload");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </body>
+</html>
