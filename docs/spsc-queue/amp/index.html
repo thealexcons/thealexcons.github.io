@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html ⚡>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+
+    <title>Implementing an optimised SPSC queue for low-latency message passing</title>
+
+    <link rel="canonical" href="../index.html" />
+    <meta name="referrer" content="no-referrer-when-downgrade" />
+    
+    <meta property="og:site_name" content="Alex Constantin-Gomez" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Implementing an optimised SPSC queue for low-latency message passing" />
+    <meta property="og:description" content="We look at how to implement a fully optimised SPSC queue, for high-throughput message passing" />
+    <meta property="og:url" content="http://localhost:2368/spsc-queue/" />
+    <meta property="article:published_time" content="2021-12-28T12:31:35.000Z" />
+    <meta property="article:modified_time" content="2021-12-28T22:34:52.000Z" />
+    <meta property="article:publisher" content="https://www.facebook.com/ghost" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Implementing an optimised SPSC queue for low-latency message passing" />
+    <meta name="twitter:description" content="We look at how to implement a fully optimised SPSC queue, for high-throughput message passing" />
+    <meta name="twitter:url" content="http://localhost:2368/spsc-queue/" />
+    <meta name="twitter:label1" content="Written by" />
+    <meta name="twitter:data1" content="Alex Constantin-Gomez" />
+    <meta name="twitter:site" content="@ghost" />
+    
+    <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "publisher": {
+        "@type": "Organization",
+        "name": "Alex Constantin-Gomez",
+        "url": "http://localhost:2368/",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "http://localhost:2368/favicon.ico",
+            "width": 48,
+            "height": 48
+        }
+    },
+    "author": {
+        "@type": "Person",
+        "name": "Alex Constantin-Gomez",
+        "image": {
+            "@type": "ImageObject",
+            "url": "//www.gravatar.com/avatar/cdc6df19dcd5c2fa40b372ff495478d3?s=250&d=mm&r=x",
+            "width": 250,
+            "height": 250
+        },
+        "url": "http://localhost:2368/author/alex/",
+        "sameAs": []
+    },
+    "headline": "Implementing an optimised SPSC queue for low-latency message passing",
+    "url": "http://localhost:2368/spsc-queue/",
+    "datePublished": "2021-12-28T12:31:35.000Z",
+    "dateModified": "2021-12-28T22:34:52.000Z",
+    "description": "We look at how to implement a fully optimised SPSC queue, for high-throughput message passing",
+    "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "http://localhost:2368/"
+    }
+}
+    </script>
+
+    <meta name="generator" content="Ghost 4.32" />
+    <link rel="alternate" type="application/rss+xml" title="Alex Constantin-Gomez" href="../../rss/index.html" />
+
+    <style amp-custom>
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
+    html {
+        overflow-x: hidden;
+        overflow-y: scroll;
+        font-size: 62.5%;
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    }
+
+    body {
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+        color: #3a4145;
+        font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Open Sans,Helvetica Neue,sans-serif;
+        font-size: 1.7rem;
+        line-height: 1.55em;
+        font-weight: 400;
+        font-style: normal;
+        background: #fff;
+        scroll-behavior: smooth;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    p,
+    ul,
+    ol,
+    li,
+    dl,
+    dd,
+    hr,
+    pre,
+    form,
+    table,
+    video,
+    figure,
+    figcaption,
+    blockquote {
+        margin: 0;
+        padding: 0;
+    }
+
+    ul[class],
+    ol[class] {
+        padding: 0;
+        list-style: none;
+    }
+
+    img {
+        display: block;
+        max-width: 100%;
+    }
+
+    input,
+    button,
+    select,
+    textarea {
+        font: inherit;
+        -webkit-appearance: none;
+    }
+
+    fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    label {
+        display: block;
+        font-size: 0.9em;
+        font-weight: 700;
+    }
+
+    hr {
+        position: relative;
+        display: block;
+        width: 100%;
+        height: 1px;
+        border: 0;
+        border-top: 1px solid currentcolor;
+        opacity: 0.1;
+    }
+
+    ::selection {
+        text-shadow: none;
+        background: #cbeafb;
+    }
+
+    mark {
+        background-color: #fdffb6;
+    }
+
+    small {
+        font-size: 80%;
+    }
+
+    sub,
+    sup {
+        position: relative;
+        font-size: 75%;
+        line-height: 0;
+        vertical-align: baseline;
+    }
+    sup {
+        top: -0.5em;
+    }
+    sub {
+        bottom: -0.25em;
+    }
+
+    ul li + li {
+        margin-top: 0.6em;
+    }
+
+    a {
+        color: var(--ghost-accent-color, #1292EE);
+        text-decoration-skip-ink: auto;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        margin: 0;
+        font-weight: 700;
+        color: #121212;
+        line-height: 1.4em;
+    }
+
+    h1 {
+        font-size: 3.4rem;
+        line-height: 1.1em;
+    }
+
+    h2 {
+        font-size: 2.4rem;
+        line-height: 1.2em;
+    }
+
+    h3 {
+        font-size: 1.8rem;
+    }
+
+    h4 {
+        font-size: 1.7rem;
+    }
+
+    h5 {
+        font-size: 1.6rem;
+    }
+
+    h6 {
+        font-size: 1.6rem;
+    }
+
+    amp-img {
+        height: 100%;
+        width: 100%;
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    amp-img img {
+        object-fit: cover;
+    }
+
+    .page-header {
+        padding: 50px 5vmin 30px;
+        text-align: center;
+        font-size: 2rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .page-header a {
+        color: #121212;
+        font-weight: 700;
+        text-decoration: none;
+        font-size: 1.6rem;
+        letter-spacing: -0.1px;
+    }
+
+    .post {
+        max-width: 680px;
+        margin: 0 auto;
+    }
+
+    .post-header {
+        margin: 0 5vmin 5vmin;
+        text-align: center;
+    }
+
+    .post-meta {
+        margin: 1rem 0 0 0;
+        text-transform: uppercase;
+        color: #738a94;
+        font-weight: 500;
+        font-size: 1.3rem;
+    }
+
+    .post-image {
+        margin: 0 0 5vmin;
+    }
+
+    .post-image img {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    .post-content {
+        padding: 0 5vmin;
+    }
+
+    .post-content > * + * {
+        margin-top: 1.5em;
+    }
+
+    .post-content [id]:not(:first-child) {
+        margin: 2em 0 0;
+    }
+
+    .post-content > [id] + * {
+        margin-top: 1rem;
+    }
+
+    .post-content [id] + .kg-card,
+    .post-content blockquote + .kg-card {
+        margin-top: 40px;
+    }
+
+    .post-content > ul,
+    .post-content > ol,
+    .post-content > dl {
+        padding-left: 1.9em;
+    }
+
+    .post-content hr {
+        margin-top: 40px;
+    }
+
+    .post .post-content hr + * {
+        margin-top: 40px;
+    }
+
+    .post-content amp-img {
+        background-color: #f8f8f8;
+    }
+
+    .post-content blockquote {
+        position: relative;
+        font-style: italic;
+    }
+
+    .post-content blockquote::before {
+        content: "";
+        position: absolute;
+        left: -1.5em;
+        top: 0;
+        bottom: 0;
+        width: 0.3rem;
+        background: var(--ghost-accent-color, #1292EE);
+    }
+
+    .post-content blockquote.kg-blockquote-alt {
+        font-size: 1.2em;
+        font-style: italic;
+        line-height: 1.6em;
+        text-align: center;
+        color: #738a94;
+        padding: 0.75em 3em 1.25em;
+    }
+
+    .post-content blockquote.kg-blockquote-alt::before {
+        display: none;
+    }
+
+    .post-content :not(.kg-card):not([id]) + .kg-card {
+        margin-top: 40px;
+    }
+
+    .post-content .kg-card + :not(.kg-card) {
+        margin-top: 40px;
+    }
+
+    .kg-card figcaption {
+        padding: 1.5rem 1.5rem 0;
+        text-align: center;
+        font-weight: 500;
+        font-size: 1.3rem;
+        line-height: 1.4em;
+        opacity: 0.6;
+    }
+
+    .kg-card figcaption strong {
+        color: rgba(0,0,0,0.8);
+    }
+
+    .post-content :not(pre) code {
+        vertical-align: middle;
+        padding: 0.15em 0.4em 0.15em;
+        border: #e1eaef 1px solid;
+        font-weight: 400;
+        font-size: 0.9em;
+        line-height: 1em;
+        color: #15171a;
+        background: #f0f6f9;
+        border-radius: 0.25em;
+    }
+
+    .post-content > pre {
+        overflow: scroll;
+        padding: 16px 20px;
+        color: #fff;
+        background: #1F2428;
+        border-radius: 5px;
+        box-shadow: 0 2px 6px -2px rgba(0,0,0,.1), 0 0 1px rgba(0,0,0,.4);
+    }
+
+    .kg-embed-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+    }
+
+    .kg-image-card img {
+        margin: auto;
+    }
+
+    .kg-gallery-card + .kg-gallery-card {
+        margin-top: 0.75em;
+    }
+
+    .kg-gallery-container {
+        position: relative;
+    }
+
+    .kg-gallery-row {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+    }
+
+    .kg-gallery-image {
+        width: 100%;
+        height: 100%;
+    }
+
+    .kg-gallery-row:not(:first-of-type) {
+        margin: 0.75em 0 0 0;
+    }
+
+    .kg-gallery-image:not(:first-of-type) {
+        margin: 0 0 0 0.75em;
+    }
+
+    .kg-bookmark-card,
+    .kg-bookmark-publisher {
+        position: relative;
+    }
+
+    .kg-bookmark-container,
+    .kg-bookmark-container:hover {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row-reverse;
+        color: currentColor;
+        background: rgba(255,255,255,0.6);
+        font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Open Sans,Helvetica Neue,sans-serif;
+        text-decoration: none;
+        border-radius: 3px;
+        box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+    }
+
+    .kg-bookmark-content {
+        flex-basis: 0;
+        flex-grow: 999;
+        padding: 20px;
+        order: 1;
+    }
+
+    .kg-bookmark-title {
+        font-weight: 600;
+        font-size: 1.5rem;
+        line-height: 1.3em;
+    }
+
+    .kg-bookmark-description {
+        display: -webkit-box;
+        max-height: 45px;
+        margin: 0.5em 0 0 0;
+        font-size: 1.4rem;
+        line-height: 1.55em;
+        overflow: hidden;
+        opacity: 0.8;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .kg-bookmark-metadata {
+        margin-top: 20px;
+    }
+
+    .kg-bookmark-metadata {
+        display: flex;
+        align-items: center;
+        font-weight: 500;
+        font-size: 1.3rem;
+        line-height: 1.3em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .kg-bookmark-description {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+    }
+
+    .kg-bookmark-metadata amp-img {
+        width: 18px;
+        height: 18px;
+        max-width: 18px;
+        max-height: 18px;
+        margin-right: 10px;
+    }
+
+    .kg-bookmark-thumbnail {
+        display: flex;
+        flex-basis: 20rem;
+        flex-grow: 1;
+        justify-content: flex-end;
+    }
+
+    .kg-bookmark-thumbnail amp-img {
+        max-height: 200px;
+    }
+
+    .kg-bookmark-author {
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+    }
+
+    .kg-bookmark-publisher::before {
+        content: "•";
+        margin: 0 .5em;
+    }
+
+    .kg-toggle-card-icon {
+        display: none;
+    }
+
+    .kg-toggle-content {
+        margin-top: 0.8rem;
+    }
+
+    .kg-product-card-container {
+        background: transparent;
+        padding: 20px;
+        width: 100%;
+        border-radius: 5px;
+        box-shadow: inset 0 0 0 1px rgb(124 139 154 / 25%);
+    }
+
+    .kg-product-card-description p {
+        margin-top: 1.5em;
+    }
+
+    .kg-product-card-description ul {
+        margin-left: 24px;
+    }
+
+    .kg-product-card-title {
+        font-size: 1.9rem;
+        font-weight: 700;
+    }
+
+    .kg-product-card-rating-star {
+        height: 28px;
+        width: 20px;
+        margin-right: 2px;
+    }
+
+    .kg-product-card-rating-star svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+    opacity: 0.15;
+    }
+
+    .kg-product-card-rating-active.kg-product-card-rating-star svg {
+    opacity: 1;
+    }
+
+    .kg-nft-card-container {
+        position: relative;
+        display: flex;
+        flex: auto;
+        flex-direction: column;
+        text-decoration: none;
+        font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Open Sans,Helvetica Neue,sans-serif;
+        font-size: 1.4rem;
+        font-weight: 400;
+        box-shadow: 0 2px 6px -2px rgb(0 0 0 / 10%), 0 0 1px rgb(0 0 0 / 40%);
+        width: 100%;
+        max-width: 512px;
+        color: #15212A;
+        background: #fff;
+        border-radius: 5px;
+        transition: none;
+        margin: 0 auto;
+    }
+
+    .kg-nft-metadata {
+        padding: 2.0rem;
+    }
+
+    .kg-nft-image-container {
+        position: relative;
+    }
+
+    .kg-nft-image {
+        display: flex;
+        border-radius: 5px 5px 0 0;
+    }
+
+    .kg-nft-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    .kg-nft-header h4.kg-nft-title {
+        font-size: 1.9rem;
+        font-weight: 700;
+        margin: 0;
+        color: #15212A;
+    }
+
+    .kg-nft-header amp-img {
+        max-width: 114px;
+        max-height: 26px;
+    }
+
+    .kg-nft-opensea-logo {
+        margin-top: 2px;
+        width: 100px;
+    }
+
+    .kg-nft-creator {
+        font-family: inherit;
+        color: #95A1AD;
+    }
+
+    .kg-nft-creator span {
+        font-weight: 500;
+        color: #15212A;
+    }
+
+    .kg-nft-card p.kg-nft-description {
+        font-size: 1.4rem;
+        line-height: 1.4em;
+        margin: 2.0rem 0 0;
+        color: #222;
+    }
+
+    .kg-button-card {
+        display: flex;
+        position: static;
+        align-items: center;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .kg-btn {
+        display: flex;
+        position: static;
+        align-items: center;
+        padding: 0 2.0rem;
+        height: 4.0rem;
+        line-height: 4.0rem;
+        font-size: 1.65rem;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 5px;
+        transition: opacity 0.2s ease-in-out;
+    }
+
+    .kg-btn:hover {
+        opacity: 0.85;
+    }
+
+    .kg-btn-accent {
+        background-color: var(--ghost-accent-color, #1292EE);
+        color: #fff;
+    }
+
+    .kg-callout-card {
+        display: flex;
+        padding: 20px 28px;
+        border-radius: 3px;
+    }
+
+    .kg-callout-card-grey {
+        background: rgba(124, 139, 154, 0.13);
+    }
+
+    .kg-callout-card-white {
+        background: transparent;
+        box-shadow: inset 0 0 0 1px rgba(124, 139, 154, 0.25);
+    }
+
+    .kg-callout-card-blue {
+        background: rgba(33, 172, 232, 0.12);
+    }
+
+    .kg-callout-card-green {
+        background: rgba(52, 183, 67, 0.12);
+    }
+
+    .kg-callout-card-yellow {
+        background: rgba(240, 165, 15, 0.13);
+    }
+
+    .kg-callout-card-red {
+        background: rgba(209, 46, 46, 0.11);
+    }
+
+    .kg-callout-card-pink {
+        background: rgba(225, 71, 174, 0.11);
+    }
+
+    .kg-callout-card-purple {
+        background: rgba(135, 85, 236, 0.12);
+    }
+
+    .kg-callout-card-accent {
+        background: var(--ghost-accent-color);
+        color: #fff;
+    }
+
+    .kg-callout-card-accent a {
+        color: #fff;
+    }
+
+    .kg-callout-emoji {
+        padding-right: 16px;
+        line-height: 1.3;
+        font-size: 1.25em;
+    }
+
+    .kg-header-card {
+        padding: 6em 3em;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .kg-header-card.kg-size-small {
+        padding-top: 4em;
+        padding-bottom: 4em;
+    }
+
+    .kg-header-card.kg-size-large {
+        padding-top: 12em;
+        padding-bottom: 12em;
+    }
+
+    .kg-header-card.kg-width-full {
+        padding-left: 4em;
+        padding-right: 4em;
+    }
+
+    .kg-header-card.kg-align-left {
+        text-align: left;
+        align-items: flex-start;
+    }
+
+    .kg-header-card.kg-style-dark {
+        background: #15171a;
+        color: #ffffff;
+    }
+
+    .kg-header-card.kg-style-light {
+        color: #15171a;
+        border: 1px solid rgba(124, 139, 154, 0.25);
+        border-width: 1px 0;
+    }
+
+    .kg-header-card.kg-style-accent {
+        background-color: var(--ghost-accent-color);
+    }
+
+    .kg-header-card.kg-style-image {
+        background-color: #e7e7eb;
+        background-size: cover;
+        background-position: center center;
+    }
+
+    .kg-header-card h2 {
+        font-size: 4em;
+        font-weight: 700;
+        line-height: 1.1em;
+        margin: 0;
+    }
+
+    .kg-header-card h2 strong {
+        font-weight: 800;
+    }
+
+    .kg-header-card.kg-size-small h2 {
+        font-size: 3em;
+    }
+
+    .kg-header-card.kg-size-large h2 {
+        font-size: 5em;
+    }
+
+    .kg-header-card h3 {
+        font-size: 1.25em;
+        font-weight: 500;
+        line-height: 1.3em;
+        margin: 0;
+    }
+
+    .kg-header-card h3 strong {
+        font-weight: 600;
+    }
+
+    .kg-header-card.kg-size-small h3 {
+        font-size: 1em;
+    }
+
+    .kg-header-card.kg-size-large h3 {
+        font-size: 1.5em;
+    }
+
+    .kg-header-card:not(.kg-style-light) h2,
+    .kg-header-card:not(.kg-style-light) h3 {
+        color: #ffffff;
+    }
+
+    .kg-header-card a.kg-header-card-button {
+        display: flex;
+        position: static;
+        align-items: center;
+        padding: 0 1.2em;
+        height: 2.4em;
+        line-height: 1em;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+        font-size: 0.95em;
+        font-weight: 600;
+        text-decoration: none !important;
+        border-radius: 5px;
+        transition: opacity 0.2s ease-in-out;
+        background-color: var(--ghost-accent-color);
+        color: #ffffff !important;
+        margin: 1.75em 0 0;
+    }
+
+    .kg-header-card a.kg-header-card-button:hover {
+        opacity: 0.85;
+    }
+
+    .kg-header-card.kg-size-large a.kg-header-card-button {
+        margin-top: 2em;
+    }
+
+    .kg-header-card.kg-size-small a.kg-header-card-button {
+        margin-top: 1.5em;
+    }
+
+    .kg-header-card.kg-style-image a.kg-header-card-button,
+    .kg-header-card.kg-style-dark a.kg-header-card-button {
+        background: #ffffff;
+        color: #15171a !important;
+    }
+
+    .kg-header-card.kg-style-accent a.kg-header-card-button {
+        background: #ffffff;
+        color: var(--ghost-accent-color) !important;
+    }
+
+    .kg-audio-card {
+        display: flex;
+        width: 100%;
+        box-shadow: inset 0 0 0 1px rgba(124, 139, 154, 0.25);
+    }
+
+    .kg-audio-thumbnail {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 80px;
+        min-width: 80px;
+        height: 80px;
+        background: transparent;
+        object-fit: cover;
+        aspect-ratio: 1/1;
+        border-radius: 3px 0 0 3px;
+    }
+
+    .kg-audio-thumbnail.placeholder {
+        background: var(--ghost-accent-color);
+    }
+
+    .kg-audio-thumbnail.placeholder svg {
+        width: 24px;
+        height: 24px;
+        fill: white;
+    }
+
+    .kg-audio-player-container {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        width: 100%;
+        --seek-before-width: 0%;
+        --volume-before-width: 100%;
+        --buffered-width: 0%;
+    }
+
+    .kg-audio-title {
+        width: 100%;
+        padding: 8px 12px 0;
+        border: none;
+        font-family: inherit;
+        font-size: 1.1em;
+        font-weight: 700;
+        background: transparent;
+    }
+
+    .kg-audio-player {
+        display: none;
+    }
+
+    .kg-width-full.kg-card-hascaption {
+        display: grid;
+        grid-template-columns: inherit;
+    }
+
+    .post-content table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    .post-content th {
+        padding: 0.5em 0.8em;
+        text-align: left;
+        font-size: .75em;
+        text-transform: uppercase;
+    }
+
+    .post-content td {
+        padding: 0.4em 0.7em;
+    }
+
+    .post-content tbody tr:nth-child(2n + 1) {
+        background-color: rgba(0,0,0,0.1);
+        padding: 1px;
+    }
+
+    .post-content tbody tr:nth-child(2n + 2) td:last-child {
+        box-shadow:
+            inset 1px 0 rgba(0,0,0,0.1),
+            inset -1px 0 rgba(0,0,0,0.1);
+    }
+
+    .post-content tbody tr:nth-child(2n + 2) td {
+        box-shadow: inset 1px 0 rgba(0,0,0,0.1);
+    }
+
+    .post-content tbody tr:last-child {
+        border-bottom: 1px solid rgba(0,0,0,.1);
+    }
+
+    .page-footer {
+        padding: 60px 5vmin;
+        margin: 60px auto 0;
+        text-align: center;
+        background-color: #f8f8f8;
+    }
+
+    .page-footer h3 {
+        margin: 0.5rem 0 0 0;
+    }
+
+    .page-footer p {
+        max-width: 500px;
+        margin: 1rem auto 1.5rem;
+        font-size: 1.7rem;
+        line-height: 1.5em;
+        color: rgba(0,0,0,0.6)
+    }
+
+    .powered {
+        display: inline-flex;
+        align-items: center;
+        margin: 30px 0 0;
+        padding: 6px 9px 6px 6px;
+        border: rgba(0,0,0,0.1) 1px solid;
+        font-size: 12px;
+        line-height: 12px;
+        letter-spacing: -0.2px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+        font-weight: 500;
+        color: #222;
+        text-decoration: none;
+        background: #fff;
+        border-radius: 6px;
+    }
+
+    .powered svg {
+        height: 16px;
+        width: 16px;
+        margin: 0 6px 0 0;
+    }
+
+    @media (max-width: 600px) {
+        body {
+            font-size: 1.6rem;
+        }
+        h1 {
+            font-size: 3rem;
+        }
+
+        h2 {
+            font-size: 2.2rem;
+        }
+    }
+
+    @media (max-width: 400px) {
+        h1 {
+            font-size: 2.6rem;
+            line-height: 1.15em;
+        }
+        h2 {
+            font-size: 2rem;
+            line-height: 1.2em;
+        }
+        h3 {
+            font-size: 1.7rem;
+        }
+    }
+
+    :root {--ghost-accent-color: #3465a4;}
+    </style>
+
+    <style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>
+    <script async src="https://cdn.ampproject.org/v0.js"></script>
+
+    
+
+</head>
+
+<body class="amp-template">
+    <header class="page-header">
+        <a href="../../index.html">
+                Alex Constantin-Gomez
+        </a>
+    </header>
+
+    <main class="content" role="main">
+        <article class="post">
+
+            <header class="post-header">
+                <h1 class="post-title">Implementing an optimised SPSC queue for low-latency message passing</h1>
+                <section class="post-meta">
+                    Alex Constantin-Gomez -
+                    <time class="post-date" datetime="2021-12-28">28 Dec 2021</time>
+                </section>
+            </header>
+            <section class="post-content">
+
+                <p></p><h2 id="background">Background</h2><p>A single-producer single-consumer queue is a FIFO buffer that acts as a message passing mechanism between two threads (the producer and the consumer). This can be especially useful when a thread produces (or receives) data which should then be passed onto another thread for processing. </p><p>An example of where these queues are used are in algorithmic trading systems, where a thread receives market data over the network, deserialises the data into an internal representation and passes it to another thread which actually uses the market data in a meaningful way (such as updating the state of the orderbook).</p><p>Naturally, in a multi-threaded environment, we may decide to have multiple producers and multiple consumers passing data around. However, this requires a more careful implementation to avoid data races and often, using locks which can lead to lower performance (due to context switches). Although implementations without using mutexes <a href="https://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue">exist</a> (via atomic RMWs), they are not technically lock-free nor trivial to implement.</p><p>On the other hand, if we have exactly 2 threads (one writer and one reader) sharing the queue, it is possible to implement a wait-free SPSC queue using only atomic loads and stores (no RMW loops!).</p><blockquote>A wait-free algorithm means that all the threads in the system make progress regardless of contention and the operations are executed in a finite number of steps.</blockquote><p>This is largely why SPSC queues are commonly found in high-throughput multi-threaad systems: they are very fast and fairly easy to implement.</p><h2 id="v1-a-simple-wait-free-spsc-queue">V1: A simple wait-free SPSC queue</h2><p>We will implement the queue as a circular ring buffer using <code>std::vector</code> as the underlying container. We also need to keep track of the <code>head</code> and <code>tail</code> fields, which are atomically updated. The queue will have a bounded capacity, which is specified on construction.</p>
+<pre><code class="language-c++">template &lt;typename T&gt;
+class SpscQueue {
+private:
+    std::vector&lt;T&gt; buffer_;
+    std::atomic&lt;size_t&gt; head_;
+    std::atomic&lt;size_t&gt; tail_;
+    
+public:
+    SpscQueue(size_t cap) : buffer_(cap + 1), head_(0), tail_(0) {
+        assert(cap + 1 &gt; 0);      // prevent overflow
+    }
+    
+    ...
+}
+</code></pre>
+<p>Notice that we are actually providing the capacity plus one to the vector. The reason for this is that we require one item in the queue to distinguish when the queue is empty or full, such that our empty/full conditions are given by:</p><ul>
+<li>Is empty? <code>head_ == tail_</code></li>
+<li>Is full?  <code>head_ == (tail_ + 1) % queue_size</code></li>
+</ul>
+<p>Given this information, we can implement our enqueue and dequeue methods. The code is given first and then explained:</p><pre><code class="language-c++">bool enqueue(const T&amp; item) {
+    const size_t t = tail_.load(std::memory_order_relaxed);
+    const size_t next_t = (t + 1) % buffer_.size();
+
+    if (next_t == head_.load(std::memory_order_acquire)) {
+        return false;
+    }
+
+    buffer_[t] = item;
+    tail_.store(next_t, std::memory_order_release);
+    return true;
+}
+
+bool dequeue(T&amp; item) {
+    const size_t h = head_.load(std::memory_order_relaxed);
+
+    if (h == tail_.load(std::memory_order_acquire)) {
+        return false;
+    }
+
+    item = buffer_[h];
+    const size_t next_h = (h + 1) % buffer_.size();
+    head_.store(next_h, std::memory_order_release);
+    return true;
+}
+
+</code></pre>
+<p>As you can see, there are no atomic RMW loops or blocking operations, so both methods are guaranteed to be wait-free and lock-free.</p><p>Let's start with <code>enqueue()</code>. We first check that the queue is not full by comparing the next possible tail index with the current head index. We use <code>std::memory_order_acquire</code> to synchronise with possible updates to the <code>head_</code> field by the consumer thread calling <code>dequeue()</code>.<br />
+We then store the item into the queue at the current tail and update the <code>tail_</code> field atomically to point to the next location. Because we want to synchronise with the <code>dequeue()</code> method, we use <code>std::memory_order_release</code> so that our local changes are visible to the other thread. This also happens to be our linearisation point, ie the point at which the <code>enqueue()</code> method appears to take effect.</p>
+<p>The reasoning for the <code>dequeue()</code> method is symmetric, but instead we check that the queue is not empty and update the  <code>head_</code> field atomically.</p>
+<p>Initially, I tried implementing the queue using only sequentially consistent atomic operations, however the performance is much worse (nearly x4 lower throughput). I recommend you benchmark an SC-only version of the queue to see how much slower it can be (due to memory barriers).</p><p>We can now benchmark this unoptimised implementation with a simple program consisting of two threads passing 100 million integers from one to the other, with a queue size of 100k. We measure how long it takes for the consumer thread to read all of the items.</p><p>We also pin the consumer and producer threads to different physical cores in our benchmark program. We will see why has makes an important point in the next section.</p><p>We compile the benchmark with O3 optimisations and <code>-march=native</code>, and we obtain the following results (run over 10 iterations):</p>
+<pre><code>Mean:   46,247,967 elems/s
+Median: 46,477,813 elems/s
+Min:    44,271,890 elems/s
+Max:    46,672,184 elems/s
+</code></pre>
+<p>We are processing around 46 million elements per second, which is quite good, but we can do even better.</p>
+<h2 id="v2-eliminating-false-sharing">V2: Eliminating false sharing</h2><p>Going back to our class definition, we see that our head and tail fields are defined contiguously in memory. This can lead to <strong>false sharing</strong>, where thread 1 modifies one of the fields and this invalidates thread 2's cache line because both fields lie on the same cache line. This forces thread 2 to go to main memory to fetch the other field even though thread 1 did not change it.</p><p>We can easily fix this by adding enough padding between the two fields such that they end up falling on different cache lines. On most modern processors, an L1 cache line is typically 64 bytes, so we can align both fields at 64 bytes each. We can do this as follows in C++:</p><pre><code class="language-c++">class SpscQueue {
+private:
+    std::vector&lt;T&gt; buffer_;
+    alignas(64) std::atomic&lt;size_t&gt; head_;
+    alignas(64) std::atomic&lt;size_t&gt; tail_;
+    
+...
+}
+</code></pre>
+<p>Our queue should no longer suffer from false sharing! Our new results show a slight improvement:</p>
+<pre><code>Mean:   49,357,127 elems/s
+Median: 49,245,343 elems/s
+Min:    47,540,700 elems/s
+Max:    50,012,641 elems/s
+</code></pre>
+<h2 id="v3-a-cache-optimised-queue">V3: A cache-optimised queue</h2><p>The final but substantial optimisation aims to improve cache usage and reduce cache misses (inspired by <a href="https://github.com/rigtorp/SPSCQueue">this</a>).</p><p>Consider the case when the consumer calls <code>dequeue()</code> to read an item:</p>
+<ol>
+<li>The <code>head_</code> needs to be updated, so that cache line is loaded into the L1 cache in an <strong>exclusive state</strong>.</li>
+<li>The <code>tail_</code> needs to be read to check that the queue is not empty, so its cache line is loaded into the L1 cache in a <strong>shared state</strong>.</li>
+</ol>
+<p>Now, assume the producer calls <code>enqueue()</code> to push a new item:<br />
+3. The <code>head_</code> needs to be read (to check that it is not full), so it causes the consumer's cache line containing <code>head_</code> to transition into a shared state.<br />
+4. This causes cache coherency traffic, as the consumer needs to bring back the <code>head_</code> cache line into an exclusive state.</p>
+<p>A symmetric situation occurs the other way round, meaning that in the worst case, there will be <strong>one cache line transition from a shared state to an exclusive state</strong> for every read and write. In the <a href="https://en.wikipedia.org/wiki/MESI_protocol">MESI cache coherency protocol</a>, these transitions are considered cache misses and produce bus traffic.</p>
+<p>To reduce bus traffic, the producer and consumer threads will each have their own cached copies of the head and tail indices which can be used to avoid having to always load the <code>head_</code> or <code>tail_</code> when checking if the queue is empty or full.</p>
+<p>Essentially, when the consumer first observes that N items are available to read, it caches this information and the N-1 subsequent reads won’t need to read the <code>tail_</code>. Similarly when the producer first observes that N items are available for writing, it caches this information and the N-1 subsequent writes won’t need to read the <code>head_</code>.</p>
+<p>Our cache-friendly implementation looks like this now:</p>
+<pre><code class="language-c++">bool enqueue(const T&amp; item) {
+    const size_t t = tail_.load(std::memory_order_relaxed);
+    const size_t next_t = (t + 1) % buffer_.size();
+
+    // Use the cached head first instead of loading the actual head from memory.
+    // If they are equal, then we know that the queue may be full, so only then load
+    // the actual value of head to check if currently full.
+    if (next_t == head_cached_) {
+        head_cached_ = head_.load(std::memory_order_acquire);
+        if (next_t == head_cached_) {
+            return false;
+        }
+    }
+
+    buffer_[t] = item;
+    tail_.store(next_t, std::memory_order_release);
+    return true;
+}
+
+bool dequeue(T&amp; item) {
+    const size_t h = head_.load(std::memory_order_relaxed);
+
+    // Use the cached tail first instead of loading the actual tail from memory.
+    // If they are equal, then we know that the queue may be empty, so only then load
+    // the actual value of tail to check if currently full.
+    if (h == tail_cached_) {
+        tail_cached_ = tail_.load(std::memory_order_acquire);
+        if (h == tail_cached_) {
+            return false;
+        }
+    }
+
+    item = buffer_[h];
+    const size_t next_h = (h + 1) % buffer_.size();
+    head_.store(next_h, std::memory_order_release);
+    return true;
+}
+
+</code></pre>
+<p>Compiling and running our benchmark again with our new queue implementation, we obtain:</p>
+<pre><code>Mean:   101,138,856 elems/s
+Median: 101,566,018 elems/s
+Min:    97,563,021 elems/s
+Max:    102,558,883 elems/s
+</code></pre>
+<p>We have more than doubled our initial throughput, reaching 100 million items per second. A fantastic improvement! Obviously, the results shown throughout this post are dependent on your hardware, but we have clearly optimised the queue, starting from a simple implementation and finishing with a cache-efficient queue.</p>
+<p>The code for the queue and the benchmark can be found <a href="https://github.com/thealexcons/spsc-queue">here</a>.</p><h2 id="closing-thoughts">Closing thoughts</h2><p>We have gone from considering a naive SPSC queue using sequentially consistent operations, introducing weaker memory orderings and improving cache efficiency by understanding the hardware, to obtain a high-throughput low-latency message passing queue.</p><p>I find this process of benchmarking and tuning very interesting, especially when seeing that your initial theories drawn up on paper can be translated into big performance boosts in practice.</p><p>There are further micro-optimisations you can try and profile, such as ensuring the buffer size is a power of two (in order to avoid performing integer division), using huge pages to reduce TLB misses during virtual address translation, etc.</p>
+
+            </section>
+
+        </article>
+    </main>
+    <footer class="page-footer">
+        <h3>Alex Constantin-Gomez</h3>
+            <p>Some posts, tutorials and notes for self reference on different topics of software engineering that interest me.</p>
+        <p><a href="../../index.html">Read more posts →</a></p>
+        <a class="powered" href="https://ghost.org" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 156 156"><g fill="none" fill-rule="evenodd"><rect fill="#15212B" width="156" height="156" rx="27"/><g transform="translate(36 36)" fill="#F6F8FA"><path d="M0 71.007A4.004 4.004 0 014 67h26a4 4 0 014 4.007v8.986A4.004 4.004 0 0130 84H4a4 4 0 01-4-4.007v-8.986zM50 71.007A4.004 4.004 0 0154 67h26a4 4 0 014 4.007v8.986A4.004 4.004 0 0180 84H54a4 4 0 01-4-4.007v-8.986z"/><rect y="34" width="84" height="17" rx="4"/><path d="M0 4.007A4.007 4.007 0 014.007 0h41.986A4.003 4.003 0 0150 4.007v8.986A4.007 4.007 0 0145.993 17H4.007A4.003 4.003 0 010 12.993V4.007z"/><rect x="67" width="17" height="17" rx="4"/></g></g></svg> Published with Ghost</a>
+    </footer>
+    
+</body>
+</html>
