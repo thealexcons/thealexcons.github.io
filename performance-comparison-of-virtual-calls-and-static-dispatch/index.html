@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+    <title>Performance comparison between virtual calls and static dispatch</title>
+
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <meta name="description" content="">
+
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Performance comparison between virtual calls and static dispatch">
+    <meta name="twitter:description" content="">
+
+    <meta property="og:url" content="http://localhost:2368">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Performance comparison between virtual calls and static dispatch">
+    <meta property="og:description" content="">
+    <meta property="og:site_name" content="Alex Constantin-Gómez">
+
+    <meta itemprop="name" content="Performance comparison between virtual calls and static dispatch">
+    <meta itemprop="description" content="">
+
+    <meta name="twitter:site" content="@yourblogtwitter">
+
+<meta name="twitter:creator" content="@yourtwitter">
+
+<meta property="article:author" content="https://www.facebook.com/yourprofile">
+
+<meta property="article:publisher" content="https://www.facebook.com/yourblogprofile">
+
+<meta property="fb:admins" content="">
+
+<meta name="google-site-verification" content="">
+
+<link rel="author" href="https://plus.google.com/yourprofile">
+
+<meta name="theme-color" content="">
+
+    <link href="../favicon.ico" rel="shortcut icon" type="image/x-icon">
+    <link href="../apple-touch-icon-precomposed.png" rel="apple-touch-icon">
+
+    <link href="http://fonts.googleapis.com/" rel="dns-prefetch">
+    <link href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400&amp;subset=latin,latin-ext" rel="stylesheet">
+
+    <link rel="stylesheet" href="../assets/css/main.min.css%3Fv=1563f2bd7f.css">
+
+    <script type="text/javascript">
+      var ga_ua = 'UA-XXXXX-X';
+
+var disqus_shortname = 'example';
+
+var enable_pjax = true;
+
+      // Pace Options
+      // ==============
+      window.paceOptions = {
+        catchupTime: 100,
+        minTime: 100,
+        elements: false,
+        restartOnRequestAfter: 500,
+        startOnPageLoad: false
+      }
+
+      // Ghostium Globals
+      // ==============
+      window.GHOSTIUM = {};
+      GHOSTIUM.haveGA = typeof ga_ua !== 'undefined' && ga_ua !== 'UA-XXXXX-X';
+      GHOSTIUM.haveDisqus = typeof disqus_shortname !== 'undefined' && disqus_shortname !== 'example';
+      GHOSTIUM.enablePjax = typeof enable_pjax !== 'undefined' ? enable_pjax : true;
+    </script>
+
+    <script src="../assets/js/head-scripts.min.js%3Fv=1563f2bd7f"></script>
+
+    <link rel="canonical" href="index.html" />
+    <meta name="referrer" content="no-referrer-when-downgrade" />
+    <link rel="amphtml" href="amp/index.html" />
+    
+    <meta property="og:site_name" content="Alex Constantin-Gómez" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Performance comparison between virtual calls and static dispatch" />
+    <meta property="og:description" content="BackgroundVirtual functions in C++ is the most popular way to achieve polymorphism. Any class with a virtual member function declaration will cause the compiler to add an a pointer to every instance of the class. This pointer is known as the virtual table pointer, which points to a table of" />
+    <meta property="og:url" content="http://localhost:2368/performance-comparison-of-virtual-calls-and-static-dispatch/" />
+    <meta property="article:published_time" content="2022-04-10T11:22:29.000Z" />
+    <meta property="article:modified_time" content="2022-04-10T11:22:29.000Z" />
+    <meta property="article:publisher" content="https://www.facebook.com/ghost" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Performance comparison between virtual calls and static dispatch" />
+    <meta name="twitter:description" content="BackgroundVirtual functions in C++ is the most popular way to achieve polymorphism. Any class with a virtual member function declaration will cause the compiler to add an a pointer to every instance of the class. This pointer is known as the virtual table pointer, which points to a table of" />
+    <meta name="twitter:url" content="http://localhost:2368/performance-comparison-of-virtual-calls-and-static-dispatch/" />
+    <meta name="twitter:label1" content="Written by" />
+    <meta name="twitter:data1" content="Alex Constantin-Gomez" />
+    <meta name="twitter:site" content="@ghost" />
+    
+    <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "publisher": {
+        "@type": "Organization",
+        "name": "Alex Constantin-Gómez",
+        "url": "http://localhost:2368/",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "http://localhost:2368/favicon.ico",
+            "width": 48,
+            "height": 48
+        }
+    },
+    "author": {
+        "@type": "Person",
+        "name": "Alex Constantin-Gomez",
+        "image": {
+            "@type": "ImageObject",
+            "url": "//www.gravatar.com/avatar/cdc6df19dcd5c2fa40b372ff495478d3?s=250&d=mm&r=x",
+            "width": 250,
+            "height": 250
+        },
+        "url": "http://localhost:2368/author/alex/",
+        "sameAs": []
+    },
+    "headline": "Performance comparison between virtual calls and static dispatch",
+    "url": "http://localhost:2368/performance-comparison-of-virtual-calls-and-static-dispatch/",
+    "datePublished": "2022-04-10T11:22:29.000Z",
+    "dateModified": "2022-04-10T11:22:29.000Z",
+    "description": "\n\nBackground\nVirtual functions in C++ is the most popular way to achieve polymorphism. Any\nclass with a virtual member function declaration will cause the compiler to add\nan a pointer to every instance of the class. This pointer is known as the \nvirtual table pointer, which points to a table of virtual functions for that\nparticular class. Thus, whenever a virtual function is invoked, the pointer is\ndereferenced to jump to the correct function. This all occurs at runtime, so it\nis known as dynami",
+    "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "http://localhost:2368/"
+    }
+}
+    </script>
+
+    <meta name="generator" content="Ghost 4.32" />
+    <link rel="alternate" type="application/rss+xml" title="Alex Constantin-Gómez" href="../rss/index.html" />
+    
+    <script defer src="../public/cards.min.js%3Fv=1563f2bd7f"></script>
+    <link rel="stylesheet" type="text/css" href="../public/cards.min.css%3Fv=1563f2bd7f.css">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XJ6V8EV9Q9"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-XJ6V8EV9Q9');
+</script>
+<style>:root {--ghost-accent-color: #3465a4;}</style>
+  </head>
+  <body class="post-template">
+
+    <button data-action="open-drawer" id="drawer-button" class="drawer-button"><i class="fa fa-bars"></i></button>
+<nav tabindex="-1" class="drawer">
+  <div class="drawer-container">
+    <!--.drawer-search(role="search")-->
+    <ul role="navigation" class="drawer-list">
+      
+<li class="drawer-list-item">
+  <a href="../index.html" data-pjax>
+    <i class="fa fa-home"></i>Home
+  </a>
+</li>
+<li class="drawer-list-item">
+  <a href="../about-me/index.html" data-pjax>
+    <i class="fa fa-info"></i>About Me
+  </a>
+</li>
+<li class="drawer-list-divider"></li>
+<li class="drawer-list-item drawer-list-title">
+  Links
+</li>
+<li class="drawer-list-item">
+  <a href="https://github.com/thealexcons" target="_blank">
+    <i class="fa fa-github"></i>Github
+  </a>
+</li>
+<li class="drawer-list-item">
+  <a href="https://www.doc.ic.ac.uk/~ac3419/" target="_blank">
+    <i class="fa fa-folder-open"></i>Notes
+  </a>
+</li>
+<li class="drawer-list-item">
+  <a href="https://www.linkedin.com/in/alexconstantin-gomez/" target="_blank">
+    <i class="fa fa-linkedin"></i>LinkedIn
+  </a>
+</li>
+    </ul>
+  </div>
+</nav>
+
+    <div class="drawer-overlay"></div>
+    <main id="container" role="main" class="container">
+      <div class="surface">
+        <div class="surface-container">
+          <div data-pjax-container class="content">
+            
+<section class="wrapper wrapper-post">
+  <div class="wrapper-container">
+    <article itemscope itemtype="http://schema.org/BlogPosting" role="article" class="post post no-image">
+        <section class="post-container">
+          <header class="post-header">
+            <ul class="post-meta-list">
+              <li class="post-meta-item">
+                Written by Alex Constantin-Gomez
+              </li>
+            </ul>
+            <h1 itemprop="name headline" class="post-title"><a href="index.html" itemprop="url" data-pjax title="Performance comparison between virtual calls and static dispatch">Performance comparison between virtual calls and static dispatch</a></h1>
+            <!--h2 itemprop="about" class="post-subtitle"></h2-->
+          </header>
+          <aside class="post-side">
+            <div class="post-author">
+              <div class="post-author-info">
+                <a href="index.html" class="post-author-name">
+                  
+                </a>
+                <p class="post-author-bio"></p>
+              </div>
+            </div>
+          </aside>
+          <div itemprop="articleBody" class="post-body">
+            <p></p><h3 id="background">Background</h3><p>Virtual functions in C++ is the most popular way to achieve polymorphism. Any class with a virtual member function declaration will cause the compiler to add an a pointer to every instance of the class. This pointer is known as the <em>virtual table pointer</em>, which points to a table of virtual functions for that particular class. Thus, whenever a virtual function is invoked, the pointer is dereferenced to jump to the correct function. This all occurs at runtime, so it is known as dynamic dispatch (or dynamic polymorphism). Most OOP languages such as Java follow the same strategy; in fact, it is the only form of dispatching that is supported (for instance methods). However, C++ allows for another form of dispatching: <strong>static dispatch</strong>.</p><p>Static dispatch essentially means that the compiler knows in advance what method to jump to. Not only does this avoid the extra layer of indirection (because there is no vtable pointer), it also allows for methods to be inlined which gives room of even more performance benefits (as opposed to virtual functions which cannot be inlined). An important but final benefit is that less space is used per instance because we do not need to store a pointer. This can be beneficial for small objects, since more instances can fit in cache.</p><p> In C++, static polymorphism is achieved through the <strong>Curiously Recurring Template Pattern (CRTP)</strong>.</p><p>As a refresher, the template pattern allows you to delegate specific behaviour in an algorithm to subclasses. With CRTP, the base class is a template class where the template type is a derived class, so it has direct access to the hook method implemented in the derived class. The derived class then inherits from the base class specialised with the derived class itself.</p><h3 id="comparison">Comparison</h3><!--kg-card-begin: markdown--><p>Let's start with dynamic dispatch, by creating a simple <em>interface</em> that we want our subclasses to implement:</p>
+<pre><code class="language-c++">struct IShape {
+    virtual double area() = 0;
+    virtual void scale(int factor) = 0;
+};
+
+class Square : public IShape {
+    double m_length;
+    
+public:
+    Square(double len) : m_length(len) {}
+    double area() override { return m_length * m_length; }
+    void scale(int factor) override { m_length *= factor; }
+};
+</code></pre>
+<p>Now, let's implement the equivalent code using CRTP:</p>
+<pre><code class="language-c++">template&lt;typename Impl&gt;
+class IShapeCRTP {
+public:
+    double area() { return impl()-&gt;area(); }
+    
+    void scale(int factor) { impl()-&gt;scale(factor); }
+private:
+    Impl* impl() { return static_cast&lt;Impl*&gt;(this); }
+};
+
+class SquareCRTP : public IShapeCRTP&lt;SquareCRTP&gt; {
+    double m_length;
+    
+public:
+    SquareCRTP(double len) : m_length(len) {}
+    double area() { return m_length * m_length; }
+    void scale(int factor) { m_length *= factor; }
+};
+</code></pre>
+<p>Now, let's write the benchmarks for both versions. I am using Google Benchmark:</p>
+<pre><code class="language-c++">#include &lt;benchmark/benchmark.h&gt;
+
+static void DynamicDispatchBenchmark(benchmark::State &amp;state) {
+    IShape* square = new Square(10);
+    for (auto _ : state) {
+        square-&gt;scale(3);
+    }
+    delete square;
+}
+
+static void StaticDispatchBenchmark(benchmark::State &amp;state) {
+    IShapeCRTP&lt;SquareCRTP&gt;* square = new SquareCRTP(10);
+    for (auto _ : state) {
+        square-&gt;scale(3);
+    }
+    delete square;
+}
+
+BENCHMARK(DynamicDispatchBenchmark);
+BENCHMARK(StaticDispatchBenchmark);
+
+BENCHMARK_MAIN();
+</code></pre>
+<p>The results on my laptop are:</p>
+<pre><code>DynamicDispatchBenchmark       2.64 ns
+StaticDispatchBenchmark        1.17 ns
+</code></pre>
+<p>That's over x2 speedup! Obviously, as with any microbenchmark, you need to take the results with a pinch of salt, since there are many factors that could affect performance in a real application which are not taken into account in an isolated example like the one above. You can see the assembly output <a href="https://godbolt.org/z/f5e4a9Kfn">here</a> for yourself.</p>
+<p>Either way, from both a practical and theoretical point of view, we see that static dispatch via CRTP provides several benefits that can lead to performance increases, compared with dynamic dispatch.</p>
+<!--kg-card-end: markdown--><p></p>
+          </div>
+          <footer class="post-footer">
+            <div itemprop="author" itemscope itemtype="http://schema.org/Person" class="post-author">
+              <div class="post-author-info">
+                <p class="post-info">
+                  <b class="post-info-title">Published on</b>
+                  <time class="post-date">April 10, 2022</time>
+                </p>
+              </div>
+            </div>
+            <div class="post-social">
+              <h4 class="post-footer-heading">Spread the word</h4>
+              <a href="index.html#" data-action="share-twitter"><i class="fa fa-fw fa-lg fa-twitter"></i></a>
+              <a href="index.html#" data-action="share-facebook"><i class="fa fa-fw fa-lg fa-facebook"></i></a>
+            </div>
+          </footer>
+        </section>
+    </article>
+
+    <footer role="contentinfo" class="footer">
+  <p><small>© 2022. All Rights Reserved.</small></p>
+</footer>
+  </div>
+</section>
+
+
+
+          </div>
+        </div>
+      </div>
+    </main>
+
+    
+
+    <script src="../assets/js/foot-scripts.min.js%3Fv=1563f2bd7f"></script>
+
+    <script type="text/javascript">
+
+      if(GHOSTIUM.haveGA) {
+        (function(g,h,o,s,t,z){g.GoogleAnalyticsObject=s;g[s]||(g[s]=
+        function(){(g[s].q=g[s].q||[]).push(arguments)});g[s].s=+new Date;
+        t=h.createElement(o);z=h.getElementsByTagName(o)[0];
+        t.src='//www.google-analytics.com/analytics.js';
+        z.parentNode.insertBefore(t,z)}(window,document,'script','ga'));
+        ga('create',ga_ua);ga('send','pageview');
+      }
+
+      if(GHOSTIUM.haveDisqus) {
+        (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = '//' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+        }());
+      }
+    </script>
+  </body>
+</html>

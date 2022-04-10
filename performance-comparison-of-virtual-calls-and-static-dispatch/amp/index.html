@@ -4,23 +4,23 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
 
-    <title>Intro to lock-free programming</title>
+    <title>Performance comparison between virtual calls and static dispatch</title>
 
     <link rel="canonical" href="../index.html" />
     <meta name="referrer" content="no-referrer-when-downgrade" />
     
     <meta property="og:site_name" content="Alex Constantin-Gómez" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="Intro to lock-free programming" />
-    <meta property="og:description" content="In this post, I attempt to explain the fundamental concepts required to write lock-free programs." />
-    <meta property="og:url" content="http://localhost:2368/lock-free-programming/" />
-    <meta property="article:published_time" content="2022-01-03T23:30:05.000Z" />
-    <meta property="article:modified_time" content="2022-03-06T10:18:08.000Z" />
+    <meta property="og:title" content="Performance comparison between virtual calls and static dispatch" />
+    <meta property="og:description" content="BackgroundVirtual functions in C++ is the most popular way to achieve polymorphism. Any class with a virtual member function declaration will cause the compiler to add an a pointer to every instance of the class. This pointer is known as the virtual table pointer, which points to a table of" />
+    <meta property="og:url" content="http://localhost:2368/performance-comparison-of-virtual-calls-and-static-dispatch/" />
+    <meta property="article:published_time" content="2022-04-10T11:22:29.000Z" />
+    <meta property="article:modified_time" content="2022-04-10T11:22:29.000Z" />
     <meta property="article:publisher" content="https://www.facebook.com/ghost" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Intro to lock-free programming" />
-    <meta name="twitter:description" content="In this post, I attempt to explain the fundamental concepts required to write lock-free programs." />
-    <meta name="twitter:url" content="http://localhost:2368/lock-free-programming/" />
+    <meta name="twitter:title" content="Performance comparison between virtual calls and static dispatch" />
+    <meta name="twitter:description" content="BackgroundVirtual functions in C++ is the most popular way to achieve polymorphism. Any class with a virtual member function declaration will cause the compiler to add an a pointer to every instance of the class. This pointer is known as the virtual table pointer, which points to a table of" />
+    <meta name="twitter:url" content="http://localhost:2368/performance-comparison-of-virtual-calls-and-static-dispatch/" />
     <meta name="twitter:label1" content="Written by" />
     <meta name="twitter:data1" content="Alex Constantin-Gomez" />
     <meta name="twitter:site" content="@ghost" />
@@ -52,11 +52,11 @@
         "url": "http://localhost:2368/author/alex/",
         "sameAs": []
     },
-    "headline": "Intro to lock-free programming",
-    "url": "http://localhost:2368/lock-free-programming/",
-    "datePublished": "2022-01-03T23:30:05.000Z",
-    "dateModified": "2022-03-06T10:18:08.000Z",
-    "description": "In this post, I attempt to explain the fundamental concepts required to write lock-free programs.",
+    "headline": "Performance comparison between virtual calls and static dispatch",
+    "url": "http://localhost:2368/performance-comparison-of-virtual-calls-and-static-dispatch/",
+    "datePublished": "2022-04-10T11:22:29.000Z",
+    "dateModified": "2022-04-10T11:22:29.000Z",
+    "description": "\n\nBackground\nVirtual functions in C++ is the most popular way to achieve polymorphism. Any\nclass with a virtual member function declaration will cause the compiler to add\nan a pointer to every instance of the class. This pointer is known as the \nvirtual table pointer, which points to a table of virtual functions for that\nparticular class. Thus, whenever a virtual function is invoked, the pointer is\ndereferenced to jump to the correct function. This all occurs at runtime, so it\nis known as dynami",
     "mainEntityOfPage": {
         "@type": "WebPage",
         "@id": "http://localhost:2368/"
@@ -1051,52 +1051,80 @@
         <article class="post">
 
             <header class="post-header">
-                <h1 class="post-title">Intro to lock-free programming</h1>
+                <h1 class="post-title">Performance comparison between virtual calls and static dispatch</h1>
                 <section class="post-meta">
                     Alex Constantin-Gomez -
-                    <time class="post-date" datetime="2022-01-03">03 Jan 2022</time>
+                    <time class="post-date" datetime="2022-04-10">10 Apr 2022</time>
                 </section>
             </header>
             <section class="post-content">
 
-                <p><small><strong>Disclaimer</strong>: Before starting, I want to highlight that I am fairly new to lock-free programming and still have a lot to learn. This post is intended for me to self-study and revisit in the future if needed, and is based on what I have learnt so far as a CS undergraduate and researching online.</small></p>
-<h2 id="introduction">Introduction</h2><p>Lock-free programming is often described as programming with locking and unlocking mutexes. While this is true, it is only a "subset" of the actual definition. A lock-free program/algorithm refers to code that cannot cause the system to lock up, such as a deadlock or livelock. In other words, there is no possible scheduling of threads and executions that would lead to a <em>locked-up</em> state. This means that the whole system makes progress as a whole, ie: at least one thread makes progress. As long as a program is able to invoke lock-free operations, the number of completed invocations keeps increasing no matter what.</p><p>Another common term in the world of lock-free programming is <em>wait-free</em>. The latter refers to a program where every thread makes progress and execute in a finite number of steps, regardless of contention. In that sense, <em>wait-free</em> is a strict subset of <em>lock-free</em> and generally, writing wait-free code is harder. However, this post will focus on lock-free programming.</p><p>As part of lock-free programming, we need to go through atomics, memory models and orderings.</p><h2 id="memory-models">Memory models</h2><p>A memory model describes how memory is read from and written to and in what order. This typically means <em>how reads and writes may be reordered</em> and <em>what memory barriers</em> <em>can be used</em> to prevent certain reorderings. We can choose to describe how memory behaves at a hardware level or at a software level.</p><h3 id="hardware-memory-models">Hardware memory models</h3><p>The hardware memory model will characterise the CPU's ability to reorder memory operations. Stronger memory models refer to those that provide more guarantees about how memory operations may be reordered (ie: the stronger the model, the less types of reorderings it admits). The strongest memory model is sequential consistency (SC) however no architecture implements SC at a hardware level because it is too expensive and prevents many optimisations.</p><p>In <strong>x86</strong>, the memory model is known as <strong>Total Store Order</strong> (TSO). It allows write-read reordering on different memory locations, ie: <em>a read from location x can be reordered before a write to y</em>. This effect is achieved through <strong>store buffering</strong>: all writes are enqueued in a per-core store buffer, allowing later reads to "overtake" these buffered writes. These buffered writes will eventually be dequeued at non-deterministic times (a type of out-of-order execution), unless a memory barrier is issued to indicate that all writes should be immediately flushed.<br /><br />A weaker memory model is <strong>Partial Store Order</strong> (PSO), which is like TSO but allows write-write reordering, and an even weaker memory model is <strong>Relaxed Store Ordering</strong> (RSO), which allows even more reorderings. These weaker models can be found on SPARC, ARM and Alpha architectures. Therefore, x86 (TSO) is actually known to be a fairly strong memory model, as it only allows one type of reordering. </p><p>Because RSO is weaker than PSO and PSO is weaker than TSO, any TSO interleaving is also a possible PSO and RSO interleaving, but not necessarily the other way around.</p><h3 id="software-memory-models">Software memory models</h3><p>We can abstract away from the hardware and instead look at how we want our software to behave with regard to memory reorderings. Each architecture will have a set of memory barriers in their instruction set (<code>mfence</code> on x86) which allow us to prevent reordering in our code (more on memory barriers in the next section).</p>
-<p>We may choose to manually issue memory fence instructions, however it is common for the compiler to do that work for us when using a higher-level constructs, such as the <code>std::atomic</code> library in C++. We can tag atomic operations with a specific memory order and the compiler will emit the necessary memory barriers.</p>
-<p>An idealised and high-level memory model is <strong>sequential consistency</strong>. SC corresponds to interleaving semantics and makes it easy to reason about your program's correctness. However, as mentioned earlier, CPUs do not implement SC at the hardware level because it prevents optimisations. The way SC memory operations are achieved is by emitting a full memory barrier immediately after it, so that other threads see the effect of the operation. In C++, all atomic operations will work under SC semantics.</p><p>On the other extreme, we can choose not to insert any memory barriers at all and let the CPU reorder the instructions as it sees fit. In C/C++, this is known as <strong>relaxed ordering</strong> (not related to the RMO hardware model). The semantics of relaxed-tagged atomic operations will correspond to the memory model of the hardware.</p><p>Somewhere in between the two previous models, we have <strong>acquire-release</strong> ordering. This model will provide an ordering between atomic stores and loads. An atomic store can be tagged as release and an atomic load can be tagged as acquire. <br /><strong>Acquire</strong> semantics prevent memory reordering of the read-acquire operation with any other read or write operation that follows it.<br /><strong>Release</strong> semantics prevent memory reordering of the write-release operation with any other read or write operation that precedes it.<br />Depending on the architecture, acquire-release operations may require fewer memory barriers than SC.</p><p>Acquire-release orderings are perfect for message passing and can be used to implement <a href="https://github.com/thealexcons/spinlock/blob/master/active_backoff_spinlock.h">spinlocks</a>. In fact, the term "acquiring/releasing a lock" actually comes from the acquire-release memory semantics.</p><h3 id="types-of-memory-barriers">Types of memory barriers</h3><p>In lock-free programming, we want to make sure that the correct memory barriers are used/emitted by the compiler so that our program behaves correctly and enforces an ordering of instructions.</p><p>Since we have four types of reordering (read-read, read-write, write-read and write-write), we would require four memory fences. In practice, we usually don't see all four. For example, Linux provides three barriers that are sufficient for its supported architectures:</p><ul>
-<li><code>smp_mb()</code>, <strong>full memory barrier</strong> that orders both reads and writes (any operation before the barrier will be committed to memory before any operation after the barrier).</li>
-<li><code>smp_rmb()</code>, <strong>read memory barrier</strong> that orders reads.</li>
-<li><code>smp_wmb()</code>, <strong>write memory barrier</strong> that orders writes.</li>
-</ul>
-<p>For more details on memory barriers and hardware, I would strongly recommend reading <a href="http://www.rdrop.com/users/paulmck/scalability/paper/whymb.2010.07.23a.pdf">this paper</a> by Paul E. McKenney.</p><h2 id="atomic-operations">Atomic operations</h2><p>In a multithreaded program where multiple threads read/write shared memory, we need to somehow synchronise accesses to avoid unwanted data races. This can be done with mutexes or with the appropriate synchronisation provided by atomic operations.</p><p>An atomic operation is one that manipulates memory in an indivisible way, such that no threads can observe the operation half-complete. On most processors nowadays, many operations are already atomic. For example, reads and writes of native types (those that fit in the memory bus, such as integers) which are aligned are atomic. For example, on x86 reads and writes to 64-bit-sized locations are atomic. This why you can write code such as <code>std::atomic&lt;int&gt; x</code> or <code>std::atomic&lt;long&gt; y</code> in C++: the compiler will align these memory locations and just use standard <code>MOV</code> operations to atomically read the values. You can use <code>std::atomic&lt;T&gt;::is_lock_free</code> in C++ to verify that the type T can be atomically read/written without using locks.</p>
-<p>You can go a step further than loading and storing data atomically by using <strong>Read-Modify-Write</strong> (RMW) operations. As the name indicates, they allow you to perform more complex transactions atomically. They're crucial in lock-free code when multiple threads want to write to the same location because when they attempt an RMW on that location, the RMWs effectively become linearisable and execute one-at-a-time, in a line.</p><h2 id="compare-and-swap">Compare-And-Swap</h2><p>The most important RMW operation is compare-and-swap (CAS). A CAS operation will compare the shared atomic value with an expected value, and if equal, it will update the shared location with a new value. In this case, the CAS is successful and returns true. If not equal, we say the CAS is unsuccessful and it returns false.</p><p>It is the only RMW that is absolutely essential, since every other RMW such as <code>fetch_add()</code> or <code>exchange()</code> can be implemented using CAS.</p>
-<p>Often, we use <strong>CAS loops</strong> to repeatedly attempt a transaction until successful. This pattern typically involves:</p>
-<ol>
-<li>Copying a shared variable to a local variable (private to other threads)</li>
-<li>Performing some speculative work using the local variable</li>
-<li>Attempting to publish any changes to the shared variable using CAS</li>
-</ol>
-<p>For example, we can implement a seemingly complex operation atomic and lock-free using a CAS loop. Below, we implement a function that atomically doubles a value if odd or increments it if even, and returns the old value:</p>
-<pre><code class="language-c++">int atomicDoubleOrIncrement(std::atomic&lt;int&gt;&amp; shared) {
-    int old = shared.load();
-    int new;
-    do {
-        if (old % 2 != 0) {
-            new = old * 2;
-        } else {
-            new = old + 1;
-        }
-    } while (!shared.compare_exchange_strong(old, new));
-    return old;
-}
+                <p></p><h3 id="background">Background</h3><p>Virtual functions in C++ is the most popular way to achieve polymorphism. Any class with a virtual member function declaration will cause the compiler to add an a pointer to every instance of the class. This pointer is known as the <em>virtual table pointer</em>, which points to a table of virtual functions for that particular class. Thus, whenever a virtual function is invoked, the pointer is dereferenced to jump to the correct function. This all occurs at runtime, so it is known as dynamic dispatch (or dynamic polymorphism). Most OOP languages such as Java follow the same strategy; in fact, it is the only form of dispatching that is supported (for instance methods). However, C++ allows for another form of dispatching: <strong>static dispatch</strong>.</p><p>Static dispatch essentially means that the compiler knows in advance what method to jump to. Not only does this avoid the extra layer of indirection (because there is no vtable pointer), it also allows for methods to be inlined which gives room of even more performance benefits (as opposed to virtual functions which cannot be inlined). An important but final benefit is that less space is used per instance because we do not need to store a pointer. This can be beneficial for small objects, since more instances can fit in cache.</p><p> In C++, static polymorphism is achieved through the <strong>Curiously Recurring Template Pattern (CRTP)</strong>.</p><p>As a refresher, the template pattern allows you to delegate specific behaviour in an algorithm to subclasses. With CRTP, the base class is a template class where the template type is a derived class, so it has direct access to the hook method implemented in the derived class. The derived class then inherits from the base class specialised with the derived class itself.</p><h3 id="comparison">Comparison</h3><p>Let's start with dynamic dispatch, by creating a simple <em>interface</em> that we want our subclasses to implement:</p>
+<pre><code class="language-c++">struct IShape {
+    virtual double area() = 0;
+    virtual void scale(int factor) = 0;
+};
+
+class Square : public IShape {
+    double m_length;
+    
+public:
+    Square(double len) : m_length(len) {}
+    double area() override { return m_length * m_length; }
+    void scale(int factor) override { m_length *= factor; }
+};
 </code></pre>
-<p>The idea is that if the CAS fails due to a modification to <code>shared</code> by another thread, the local variable <code>old</code> gets updated to be the latest value of <code>shared</code> (in C++, if a CAS fails then it will update the expected parameter to contain the latest value) and we try again. You can think of the body of a CAS loop as a protected section that cannot be seen by other threads because we perform work using the local variable.</p>
-<p>The code above qualifies as lock-free because:</p>
-<ol>
-<li>if the CAS succeeds, then we break from the loop and the thread makes progress</li>
-<li>if the CAS fails, then it must be because another thread updated the value first and their CAS was successful, so there is another thread that makes progress</li>
-</ol>
-<p>However, this function is not wait-free because only one thread can make progress at any given time and a thread's progress will depend on contention.</p>
-<h2 id="closing-thoughts">Closing thoughts</h2><p>Lock-free programming is hard, as it requires you to have a good understanding of a variety of topics that go all the way down to the hardware. I am still a novice in this area however I am really enjoying learning about it and writing this post has helped solidify my understanding of memory models, atomics, instruction reordering, etc.<br /></p>
+<p>Now, let's implement the equivalent code using CRTP:</p>
+<pre><code class="language-c++">template&lt;typename Impl&gt;
+class IShapeCRTP {
+public:
+    double area() { return impl()-&gt;area(); }
+    
+    void scale(int factor) { impl()-&gt;scale(factor); }
+private:
+    Impl* impl() { return static_cast&lt;Impl*&gt;(this); }
+};
+
+class SquareCRTP : public IShapeCRTP&lt;SquareCRTP&gt; {
+    double m_length;
+    
+public:
+    SquareCRTP(double len) : m_length(len) {}
+    double area() { return m_length * m_length; }
+    void scale(int factor) { m_length *= factor; }
+};
+</code></pre>
+<p>Now, let's write the benchmarks for both versions. I am using Google Benchmark:</p>
+<pre><code class="language-c++">#include &lt;benchmark/benchmark.h&gt;
+
+static void DynamicDispatchBenchmark(benchmark::State &amp;state) {
+    IShape* square = new Square(10);
+    for (auto _ : state) {
+        square-&gt;scale(3);
+    }
+    delete square;
+}
+
+static void StaticDispatchBenchmark(benchmark::State &amp;state) {
+    IShapeCRTP&lt;SquareCRTP&gt;* square = new SquareCRTP(10);
+    for (auto _ : state) {
+        square-&gt;scale(3);
+    }
+    delete square;
+}
+
+BENCHMARK(DynamicDispatchBenchmark);
+BENCHMARK(StaticDispatchBenchmark);
+
+BENCHMARK_MAIN();
+</code></pre>
+<p>The results on my laptop are:</p>
+<pre><code>DynamicDispatchBenchmark       2.64 ns
+StaticDispatchBenchmark        1.17 ns
+</code></pre>
+<p>That's over x2 speedup! Obviously, as with any microbenchmark, you need to take the results with a pinch of salt, since there are many factors that could affect performance in a real application which are not taken into account in an isolated example like the one above. You can see the assembly output <a href="https://godbolt.org/z/f5e4a9Kfn">here</a> for yourself.</p>
+<p>Either way, from both a practical and theoretical point of view, we see that static dispatch via CRTP provides several benefits that can lead to performance increases, compared with dynamic dispatch.</p>
+<p></p>
 
             </section>
 
