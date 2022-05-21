@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 
-    <title>Performance comparison between virtual calls and static dispatch</title>
+    <title>Implementing pattern matching in C++17</title>
 
     <meta name="HandheldFriendly" content="True">
     <meta name="MobileOptimized" content="320">
@@ -16,16 +16,16 @@
     <meta name="description" content="">
 
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="Performance comparison between virtual calls and static dispatch">
+    <meta name="twitter:title" content="Implementing pattern matching in C++17">
     <meta name="twitter:description" content="">
 
     <meta property="og:url" content="http://localhost:2368">
     <meta property="og:type" content="article">
-    <meta property="og:title" content="Performance comparison between virtual calls and static dispatch">
+    <meta property="og:title" content="Implementing pattern matching in C++17">
     <meta property="og:description" content="">
     <meta property="og:site_name" content="Alex Constantin-Gómez">
 
-    <meta itemprop="name" content="Performance comparison between virtual calls and static dispatch">
+    <meta itemprop="name" content="Implementing pattern matching in C++17">
     <meta itemprop="description" content="">
 
     <meta name="twitter:site" content="@yourblogtwitter">
@@ -85,16 +85,16 @@ var enable_pjax = true;
     
     <meta property="og:site_name" content="Alex Constantin-Gómez" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="Performance comparison between virtual calls and static dispatch" />
-    <meta property="og:description" content="A brief summary of static dispatch in C++ and how it compares with virtual functions." />
-    <meta property="og:url" content="http://localhost:2368/performance-virtual-calls-and-static-dispatch/" />
-    <meta property="article:published_time" content="2022-04-10T11:22:29.000Z" />
-    <meta property="article:modified_time" content="2022-04-10T11:28:47.000Z" />
+    <meta property="og:title" content="Implementing pattern matching in C++17" />
+    <meta property="og:description" content="A short post on how to implement type-based pattern matching using C++17 features." />
+    <meta property="og:url" content="http://localhost:2368/pattern-matching-cpp17/" />
+    <meta property="article:published_time" content="2022-05-21T15:21:22.000Z" />
+    <meta property="article:modified_time" content="2022-05-21T15:22:14.000Z" />
     <meta property="article:publisher" content="https://www.facebook.com/ghost" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Performance comparison between virtual calls and static dispatch" />
-    <meta name="twitter:description" content="A brief summary of static dispatch in C++ and how it compares with virtual functions." />
-    <meta name="twitter:url" content="http://localhost:2368/performance-virtual-calls-and-static-dispatch/" />
+    <meta name="twitter:title" content="Implementing pattern matching in C++17" />
+    <meta name="twitter:description" content="A short post on how to implement type-based pattern matching using C++17 features." />
+    <meta name="twitter:url" content="http://localhost:2368/pattern-matching-cpp17/" />
     <meta name="twitter:label1" content="Written by" />
     <meta name="twitter:data1" content="Alex Constantin-Gomez" />
     <meta name="twitter:site" content="@ghost" />
@@ -126,11 +126,11 @@ var enable_pjax = true;
         "url": "http://localhost:2368/author/alex/",
         "sameAs": []
     },
-    "headline": "Performance comparison between virtual calls and static dispatch",
-    "url": "http://localhost:2368/performance-virtual-calls-and-static-dispatch/",
-    "datePublished": "2022-04-10T11:22:29.000Z",
-    "dateModified": "2022-04-10T11:28:47.000Z",
-    "description": "A brief summary of static dispatch in C++ and how it compares with virtual functions.",
+    "headline": "Implementing pattern matching in C++17",
+    "url": "http://localhost:2368/pattern-matching-cpp17/",
+    "datePublished": "2022-05-21T15:21:22.000Z",
+    "dateModified": "2022-05-21T15:22:14.000Z",
+    "description": "A short post on how to implement type-based pattern matching using C++17 features.",
     "mainEntityOfPage": {
         "@type": "WebPage",
         "@id": "http://localhost:2368/"
@@ -211,7 +211,7 @@ var enable_pjax = true;
                 Written by Alex Constantin-Gomez
               </li>
             </ul>
-            <h1 itemprop="name headline" class="post-title"><a href="index.html" itemprop="url" data-pjax title="Performance comparison between virtual calls and static dispatch">Performance comparison between virtual calls and static dispatch</a></h1>
+            <h1 itemprop="name headline" class="post-title"><a href="index.html" itemprop="url" data-pjax title="Implementing pattern matching in C++17">Implementing pattern matching in C++17</a></h1>
             <!--h2 itemprop="about" class="post-subtitle"></h2-->
           </header>
           <aside class="post-side">
@@ -225,79 +225,104 @@ var enable_pjax = true;
             </div>
           </aside>
           <div itemprop="articleBody" class="post-body">
-            <p></p><h3 id="background">Background</h3><p>Virtual functions in C++ is the most popular way to achieve polymorphism. Any class with a virtual member function declaration will cause the compiler to add an a pointer to every instance of the class. This pointer is known as the <em>virtual table pointer</em>, which points to a table of virtual functions for that particular class. Thus, whenever a virtual function is invoked, the pointer is dereferenced to jump to the correct function. This all occurs at runtime, so it is known as dynamic dispatch (or dynamic polymorphism). Most OOP languages such as Java follow the same strategy; in fact, it is the only form of dispatching that is supported (for instance methods). However, C++ allows for another form of dispatching: <strong>static dispatch</strong>.</p><p>Static dispatch essentially means that the compiler knows in advance what method to jump to. Not only does this avoid the extra layer of indirection (because there is no vtable pointer), it also allows for methods to be inlined which gives room of even more performance benefits (as opposed to virtual functions which cannot be inlined). An important but final benefit is that less space is used per instance because we do not need to store a pointer. This can be beneficial for small objects, since more instances can fit in cache.</p><p> In C++, static polymorphism is achieved through the <strong>Curiously Recurring Template Pattern (CRTP)</strong>.</p><p>As a refresher, the template pattern allows you to delegate specific behaviour in an algorithm to subclasses. With CRTP, the base class is a template class where the template type is a derived class, so it has direct access to the hook method implemented in the derived class. The derived class then inherits from the base class specialised with the derived class itself.</p><h3 id="comparison">Comparison</h3><!--kg-card-begin: markdown--><p>Let's start with dynamic dispatch, by creating a simple <em>interface</em> that we want our subclasses to implement:</p>
-<pre><code class="language-c++">struct IShape {
-    virtual double area() = 0;
-    virtual void scale(int factor) = 0;
+            <p>Pattern matching is one of my favourite features that exist in many modern programming languages, especially functional languages like Haskell or Scala. Unfortunately, it is not a feature that is part of the C++ language standard. However, with recent updates to the C++ language and standard library, it is possible to implement very primitive pattern matching constructs. I will explain how to do this in under 50 lines of code using some of the features introduced in C++17.</p><h3 id="variants-and-visitation">Variants and visitation</h3><!--kg-card-begin: markdown--><p>The main introductions to C++17 that allows us to easily implement pattern matching are <a href="http://en.cppreference.com/w/cpp/utility/variant"><code>std::variant</code></a> and <a href="http://en.cppreference.com/w/cpp/utility/variant/visit"><code>std::visit</code></a>. A variant is simply a type-safe <code>union</code> that allows us to store one of multiple specified types in a memory location at any given time.<br>
+To operate on the value stored in the variant, we typically use the <code>std::visit</code> function, which invokes a user-supplied functor on the data, dispatching to the correct type.</p>
+<p>The usage is simple, but verbose and cumbersome:</p>
+<pre><code class="language-c++">std::variant&lt;int, bool, double&gt; v{42};
+
+struct visitor
+{
+    void operator()(int d)     { std::cout &lt;&lt; &quot;int&quot; &lt;&lt; std::endl; }
+    void operator()(bool d)    { std::cout &lt;&lt; &quot;bool&quot; &lt;&lt; std::endl; }
+    void operator()(double d)  { std::cout &lt;&lt; &quot;double&quot; &lt;&lt; std::endl; }
 };
 
-class Square : public IShape {
-    double m_length;
-    
-public:
-    Square(double len) : m_length(len) {}
-    double area() override { return m_length * m_length; }
-    void scale(int factor) override { m_length *= factor; }
+std::visit(visitor{}, v);  // Prints &quot;int&quot;
+</code></pre>
+<p>Alternatively, we use <code>if constexpr</code> statements inside a generic lambda:</p>
+<pre><code class="language-c++">std::visit([](auto d)
+{
+    if constexpr(std::is_same_v&lt;decltype(d), int&gt;)
+        std::cout &lt;&lt; &quot;int&quot; &lt;&lt; std::endl;
+    else if constexpr(std::is_same_v&lt;decltype(d), bool&gt;)
+        std::cout &lt;&lt; &quot;bool&quot; &lt;&lt; std::endl;
+    // ...
+}, v);
+</code></pre>
+<p>Although both techniques do the job, we would like something shorter and more readable, that resembles <em>pattern matching</em>.</p>
+<!--kg-card-end: markdown--><h3 id="implementing-a-match-statement">Implementing a <code>match</code> statement</h3><!--kg-card-begin: markdown--><p>The syntax I am aiming to implement looks like this:</p>
+<pre><code class="language-c++">std::variant&lt;double, int, std::string&gt; val = &quot;test&quot;;
+
+match(val).on(
+      [](const std::string&amp; str)    { std::cout &lt;&lt; &quot;str: &quot; &lt;&lt; str &lt;&lt; std::endl; },
+      [](int i)                     { std::cout &lt;&lt; &quot;int: &quot; &lt;&lt; i &lt;&lt; std::endl; },
+      [](double d)                  { std::cout &lt;&lt; &quot;double: &quot; &lt;&lt; d &lt;&lt; std::endl; }
+);
+</code></pre>
+<p>I find this syntax much more readable and it resembles a functional programming language.</p>
+<p>As you can see, we take in a set of lambdas, where each one handles a particular type allowed by the variant. So, how do we implement this <em>list of lambdas</em>?<br>
+The first important observation is to realise that a lambda is just a struct with the <code>operator()</code> overloaded. Therefore, if we could &quot;compose&quot; multiple structs together such that we have a single struct containing an overloaded <code>operator()</code> for each type of the variant, the problem would be solved.<br>
+How do we &quot;compose&quot; these structs together then? Well, we can just use inheritance! This technique is called an <strong>overload set</strong>.</p>
+<!--kg-card-end: markdown--><h3 id="building-an-overload-set">Building an overload set</h3><!--kg-card-begin: markdown--><p>As mentioned, we can compose functors through inheritance:</p>
+<pre><code class="language-c++">struct visitor_int { void operator()(int x) { std::cout &lt;&lt; &quot;int&quot;; } };
+struct visitor_float { void operator()(float x) { std::cout &lt;&lt; &quot;float&quot;; } };
+
+// Compose both functors via inheritance:
+struct visitor : visitor_int, visitor_float
+{
+    using visitor_int::operator();
+    using visitor_float::operator();
 };
 </code></pre>
-<p>Now, let's implement the equivalent code using CRTP:</p>
-<pre><code class="language-c++">template&lt;typename Impl&gt;
-class IShapeCRTP {
+<p>Note that we explicitly have the two <code>using</code> statements to bring the overloads into the same scope of <code>visitor</code> in order to enable overload resolution. This is because a call to <code>visitor::operator()</code> would be ambiguous because the compiler performs name resolution before overload resolution.</p>
+<p>Given the example above, we can generalise the pattern by templating over the base classes:</p>
+<pre><code class="language-c+">template &lt;typename A, typename B&gt;
+struct overload_set : A, B
+{
+    using A::operator();
+    using B::operator();
+};
+</code></pre>
+<p>Furthermore, we can generalise this pattern even more by using <strong>variadic templates</strong> in conjunction with the variadic <code>using</code> statements which were introduced in C++17:</p>
+<pre><code class="language-c++">template &lt;typename... Functors&gt;
+struct overload_set : Functors...
+{
+    using Functors::operator()...;
+}
+</code></pre>
+<p>We can now instantiate an <code>overload_set</code> with as many lambdas as we want:</p>
+<pre><code class="language-c++">overload_set os{
+    [](int d)   { ...; },
+    [](float d) { ...; }
+};
+</code></pre>
+<!--kg-card-end: markdown--><h3 id="putting-everything-together">Putting everything together</h3><!--kg-card-begin: markdown--><p>The difficult part is done now, we just need to put everything together to implement the syntax described earlier. We can do this by creating a generic class which accepts a variant and performs visitation using an overloaded set:</p>
+<pre><code class="language-c++">template &lt;typename Variant&gt;
+class match
+{
 public:
-    double area() { return impl()-&gt;area(); }
-    
-    void scale(int factor) { impl()-&gt;scale(factor); }
+    constexpr explicit match(const Variant&amp; variant) : d_variant(variant) {}
+
+    template&lt;typename... Fs&gt;
+    constexpr auto on(Fs... fs)
+    {
+        return std::visit(overload_set&lt;Fs...&gt; { std::forward&lt;Fs&gt;(fs)... }, d_variant);
+    }
+
 private:
-    Impl* impl() { return static_cast&lt;Impl*&gt;(this); }
-};
-
-class SquareCRTP : public IShapeCRTP&lt;SquareCRTP&gt; {
-    double m_length;
-    
-public:
-    SquareCRTP(double len) : m_length(len) {}
-    double area() { return m_length * m_length; }
-    void scale(int factor) { m_length *= factor; }
+    Variant d_variant;
 };
 </code></pre>
-<p>Now, let's write the benchmarks for both versions. I am using Google Benchmark:</p>
-<pre><code class="language-c++">#include &lt;benchmark/benchmark.h&gt;
-
-static void DynamicDispatchBenchmark(benchmark::State &amp;state) {
-    IShape* square = new Square(10);
-    for (auto _ : state) {
-        square-&gt;scale(3);
-    }
-    delete square;
-}
-
-static void StaticDispatchBenchmark(benchmark::State &amp;state) {
-    IShapeCRTP&lt;SquareCRTP&gt;* square = new SquareCRTP(10);
-    for (auto _ : state) {
-        square-&gt;scale(3);
-    }
-    delete square;
-}
-
-BENCHMARK(DynamicDispatchBenchmark);
-BENCHMARK(StaticDispatchBenchmark);
-
-BENCHMARK_MAIN();
-</code></pre>
-<p>The results on my laptop are:</p>
-<pre><code>DynamicDispatchBenchmark       2.64 ns
-StaticDispatchBenchmark        1.17 ns
-</code></pre>
-<p>That's over x2 speedup! Obviously, as with any microbenchmark, you need to take the results with a pinch of salt, since there are many factors that could affect performance in a real application which are not taken into account in an isolated example like the one above. You can see the assembly output <a href="https://godbolt.org/z/f5e4a9Kfn">here</a> for yourself.</p>
-<p>Either way, from both a practical and theoretical point of view, we see that static dispatch via CRTP provides several benefits that can lead to performance increases, compared with dynamic dispatch.</p>
-<!--kg-card-end: markdown--><p></p>
+<p>In very few lines of code, we have implemented a simple but powerful pattern matching construct that allows us to dispatch based on the type of the value of a variant.</p>
+<p>The full code with usage examples can be found on <a href="https://github.com/thealexcons/pattern-matching-cpp">my GitHub</a>.</p>
+<!--kg-card-end: markdown-->
           </div>
           <footer class="post-footer">
             <div itemprop="author" itemscope itemtype="http://schema.org/Person" class="post-author">
               <div class="post-author-info">
                 <p class="post-info">
                   <b class="post-info-title">Published on</b>
-                  <time class="post-date">April 10, 2022</time>
+                  <time class="post-date">May 21, 2022</time>
                 </p>
               </div>
             </div>
