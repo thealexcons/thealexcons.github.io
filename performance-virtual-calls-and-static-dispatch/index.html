@@ -284,11 +284,11 @@ BENCHMARK(StaticDispatchBenchmark);
 
 BENCHMARK_MAIN();
 </code></pre>
-<p>The results on my laptop are:</p>
-<pre><code>DynamicDispatchBenchmark       2.64 ns
-StaticDispatchBenchmark        1.17 ns
+<p>I ran the benchmark on QuickBench, click <a href="https://quick-bench.com/q/qIxto4iI7DEE-ivpN4XQUA_JpkA" target="_bank">here</a> to see the code and results.</p>
+<pre><code>DynamicDispatchBenchmark       CPU time: 15.01 ns
+StaticDispatchBenchmark        CPU time: 3.04 ns
 </code></pre>
-<p>That's over x2 speedup! Obviously, as with any microbenchmark, you need to take the results with a pinch of salt, since there are many factors that could affect performance in a real application which are not taken into account in an isolated example like the one above. You can see the assembly output <a href="https://godbolt.org/z/f5e4a9Kfn">here</a> for yourself.</p>
+<p>That's about a x5 speedup! Obviously, as with any microbenchmark, you need to take the results with a pinch of salt, since there are many factors that could affect performance in a real application which are not taken into account in an isolated example like the one above. You can see the assembly output <a href="https://godbolt.org/z/f5e4a9Kfn">here</a> for yourself.</p>
 <p>Either way, from both a practical and theoretical point of view, we see that static dispatch via CRTP provides several benefits that can lead to performance increases, compared with dynamic dispatch.</p>
 <!--kg-card-end: markdown--><p></p>
           </div>
