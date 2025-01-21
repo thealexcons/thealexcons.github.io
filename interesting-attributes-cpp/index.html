@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+    <title>Writing custom memory allocators in C++</title>
+
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <meta name="description" content="">
+
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Writing custom memory allocators in C++">
+    <meta name="twitter:description" content="">
+
+    <meta property="og:url" content="http://localhost:2368">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Writing custom memory allocators in C++">
+    <meta property="og:description" content="">
+    <meta property="og:site_name" content="Alex Constantin-Gómez">
+
+    <meta itemprop="name" content="Writing custom memory allocators in C++">
+    <meta itemprop="description" content="">
+
+    <meta name="twitter:site" content="@yourblogtwitter">
+
+<meta name="twitter:creator" content="@yourtwitter">
+
+<meta property="article:author" content="https://www.facebook.com/yourprofile">
+
+<meta property="article:publisher" content="https://www.facebook.com/yourblogprofile">
+
+<meta property="fb:admins" content="">
+
+<meta name="google-site-verification" content="">
+
+<link rel="author" href="https://plus.google.com/yourprofile">
+
+<meta name="theme-color" content="">
+
+    <link href="../favicon.ico" rel="shortcut icon" type="image/x-icon">
+    <link href="../apple-touch-icon-precomposed.png" rel="apple-touch-icon">
+
+    <link href="http://fonts.googleapis.com/" rel="dns-prefetch">
+    <link href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400&amp;subset=latin,latin-ext" rel="stylesheet">
+
+    <link rel="stylesheet" href="../assets/css/main.min.css%3Fv=283ec8ee3a.css">
+
+    <script type="text/javascript">
+      var ga_ua = 'UA-XXXXX-X';
+
+var disqus_shortname = 'example';
+
+var enable_pjax = true;
+
+      // Pace Options
+      // ==============
+      window.paceOptions = {
+        catchupTime: 100,
+        minTime: 100,
+        elements: false,
+        restartOnRequestAfter: 500,
+        startOnPageLoad: false
+      }
+
+      // Ghostium Globals
+      // ==============
+      window.GHOSTIUM = {};
+      GHOSTIUM.haveGA = typeof ga_ua !== 'undefined' && ga_ua !== 'UA-XXXXX-X';
+      GHOSTIUM.haveDisqus = typeof disqus_shortname !== 'undefined' && disqus_shortname !== 'example';
+      GHOSTIUM.enablePjax = typeof enable_pjax !== 'undefined' ? enable_pjax : true;
+    </script>
+
+    <script src="../assets/js/head-scripts.min.js%3Fv=283ec8ee3a"></script>
+
+    <link rel="canonical" href="index.html" />
+    <meta name="referrer" content="no-referrer-when-downgrade" />
+    <link rel="amphtml" href="amp/index.html" />
+    
+    <meta property="og:site_name" content="Alex Constantin-Gómez" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Writing custom memory allocators in C++" />
+    <meta property="og:description" content="We look at how to implement custom memory allocators in C++ and their benefits." />
+    <meta property="og:url" content="http://localhost:2368/custom-memory-allocators/" />
+    <meta property="article:published_time" content="2021-12-30T12:54:15.000Z" />
+    <meta property="article:modified_time" content="2021-12-30T12:56:17.000Z" />
+    <meta property="article:publisher" content="https://www.facebook.com/ghost" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Writing custom memory allocators in C++" />
+    <meta name="twitter:description" content="We look at how to implement custom memory allocators in C++ and their benefits." />
+    <meta name="twitter:url" content="http://localhost:2368/custom-memory-allocators/" />
+    <meta name="twitter:label1" content="Written by" />
+    <meta name="twitter:data1" content="Alex Constantin-Gomez" />
+    <meta name="twitter:site" content="@ghost" />
+    
+    <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "publisher": {
+        "@type": "Organization",
+        "name": "Alex Constantin-Gómez",
+        "url": "http://localhost:2368/",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "http://localhost:2368/favicon.ico",
+            "width": 48,
+            "height": 48
+        }
+    },
+    "author": {
+        "@type": "Person",
+        "name": "Alex Constantin-Gomez",
+        "image": {
+            "@type": "ImageObject",
+            "url": "//www.gravatar.com/avatar/cdc6df19dcd5c2fa40b372ff495478d3?s=250&d=mm&r=x",
+            "width": 250,
+            "height": 250
+        },
+        "url": "http://localhost:2368/author/alex/",
+        "sameAs": []
+    },
+    "headline": "Writing custom memory allocators in C++",
+    "url": "http://localhost:2368/custom-memory-allocators/",
+    "datePublished": "2021-12-30T12:54:15.000Z",
+    "dateModified": "2021-12-30T12:56:17.000Z",
+    "description": "We look at how to implement custom memory allocators in C++ and their benefits.",
+    "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "http://localhost:2368/"
+    }
+}
+    </script>
+
+    <meta name="generator" content="Ghost 4.32" />
+    <link rel="alternate" type="application/rss+xml" title="Alex Constantin-Gómez" href="../rss/index.html" />
+    
+    <script defer src="../public/cards.min.js%3Fv=283ec8ee3a"></script>
+    <link rel="stylesheet" type="text/css" href="../public/cards.min.css%3Fv=283ec8ee3a.css">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XJ6V8EV9Q9"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-XJ6V8EV9Q9');
+</script>
+<style>:root {--ghost-accent-color: #3465a4;}</style>
+  </head>
+  <body class="post-template">
+
+    <button data-action="open-drawer" id="drawer-button" class="drawer-button"><i class="fa fa-bars"></i></button>
+<nav tabindex="-1" class="drawer">
+  <div class="drawer-container">
+    <!--.drawer-search(role="search")-->
+    <ul role="navigation" class="drawer-list">
+      
+<li class="drawer-list-item">
+  <a href="../index.html" data-pjax>
+    <i class="fa fa-home"></i>Home
+  </a>
+</li>
+<li class="drawer-list-item">
+  <a href="../about-me/index.html" data-pjax>
+    <i class="fa fa-info"></i>About Me
+  </a>
+</li>
+<li class="drawer-list-divider"></li>
+<li class="drawer-list-item drawer-list-title">
+  Links
+</li>
+<li class="drawer-list-item">
+  <a href="https://github.com/thealexcons" target="_blank">
+    <i class="fa fa-github"></i>Github
+  </a>
+</li>
+<li class="drawer-list-item">
+  <a href="https://www.doc.ic.ac.uk/~ac3419/" target="_blank">
+    <i class="fa fa-folder-open"></i>Notes
+  </a>
+</li>
+<li class="drawer-list-item">
+  <a href="https://www.linkedin.com/in/alexconstantin-gomez/" target="_blank">
+    <i class="fa fa-linkedin"></i>LinkedIn
+  </a>
+</li>
+    </ul>
+  </div>
+</nav>
+
+    <div class="drawer-overlay"></div>
+    <main id="container" role="main" class="container">
+      <div class="surface">
+        <div class="surface-container">
+          <div data-pjax-container class="content">
+            
+<section class="wrapper wrapper-post">
+  <div class="wrapper-container">
+    <article itemscope itemtype="http://schema.org/BlogPosting" role="article" class="post post no-image">
+        <section class="post-container">
+          <header class="post-header">
+            <ul class="post-meta-list">
+              <li class="post-meta-item">
+                Written by Alex Constantin-Gomez
+              </li>
+            </ul>
+            <h1 itemprop="name headline" class="post-title"><a href="index.html" itemprop="url" data-pjax title="Writing custom memory allocators in C++">Writing custom memory allocators in C++</a></h1>
+            <!--h2 itemprop="about" class="post-subtitle"></h2-->
+          </header>
+          <aside class="post-side">
+            <div class="post-author">
+              <div class="post-author-info">
+                <a href="index.html" class="post-author-name">
+                  
+                </a>
+                <p class="post-author-bio"></p>
+              </div>
+            </div>
+          </aside>
+          <div itemprop="articleBody" class="post-body">
+            <p></p><h2 id="introduction">Introduction</h2><!--kg-card-begin: markdown--><p>An essential part of memory management is how memory is allocated and eventually deallocated. By default, memory in C++ programs is allocated using the <code>new</code> keyword and deallocated using the <code>delete</code> keyword. However, sometimes we want more control over how and where objects are allocated/deallocated to avoid issues like fragmentation.</p>
+<p>The C++ standard library allows programmers to write custom allocators which can be used by STL containers for dynamic memory allocation, rather than using the standard allocator.</p>
+<p>Allocators can be used to improve performance-related issues such as fragmentation, per-thread allocation and NUMA-friendly allocation.</p>
+<p>We will see some examples in this post and their benefits, but before we should mention the different properties and requirements an allocator should have in C++.</p>
+<!--kg-card-end: markdown--><h2 id="the-allocator-api">The allocator API</h2><!--kg-card-begin: markdown--><p>In C++, an allocator is a template class that allocates and deallocates memory for a specific type T. There are two types of allocators:</p>
+<ul>
+<li><strong>Equal</strong> allocators: two equal allocators can be used to allocate and deallocate memory for a type T interchangeably. These are usually <strong>stateless</strong> allocators.</li>
+<li><strong>Unequal</strong> allocators: two unequeal allocators cannot be used to allocate and deallocate memory interchangeably. These are usually <strong>stateful</strong> allocators.</li>
+</ul>
+<p>An allocator class should offer a <code>T* allocate(size_t n)</code> method to allocate <code>n</code> number of objects of type <code>T</code> and a <code>void deallocate(T* p, size_t n)</code> method to deallocate an object of type <code>T</code>.</p>
+<p>Additionally, we need to provide an empty copy constructor using a template of type <code>U</code> for full compatibility with STL containers, because the container may also need to allocate internal objects (such as linked list nodes) in addition to objects of type <code>T</code>.</p>
+<p>The most simple allocator using <code>malloc()</code> can be implemented as follows:</p>
+<pre><code class="language-c++">template &lt;typename T&gt;
+class SimpleAllocator {
+public:
+    using value_type = T;
+
+    SimpleAllocator() = default;
+    
+    template &lt;typename U&gt;
+    SimpleAllocator(const SimpleAllocator&lt;U&gt;&amp; other) {
+        (void) other;
+    }
+    
+    T* allocate(size_t n) {
+        auto ptr = static_cast&lt;T*&gt;(malloc(sizeof(T) * n));
+        if (ptr)
+            return ptr;
+            
+        throw std::bad_alloc();
+    }
+    
+    void deallocate(T* ptr, size_t n) {
+        (void) n;
+        free(ptr);
+    }
+};
+</code></pre>
+<p>Because this is a stateless allocator and just uses <code>malloc()</code>, this is an equal allocator, so it is good practice to define the following equality operators for our allocator:</p>
+<pre><code class="language-c++">template &lt;typename T, typename U&gt;
+bool operator==(const SimpleAllocator&lt;T&gt;&amp; a1, const SimpleAllocator&lt;U&gt;&amp; a2) {
+    (void) a1; (void) a2;
+    return true;
+}
+
+template &lt;typename T, typename U&gt;
+bool operator!=(const SimpleAllocator&lt;T&gt;&amp; a1, const SimpleAllocator&lt;U&gt;&amp; a2) {
+    (void) a1; (void) a2;
+    return false;
+}
+</code></pre>
+<p>In C++17, you can avoid manually writing the two equality operators above by adding the property <code>using is_always_equal = std::true_type</code> if the allocator is equal (or <code>std::false_type</code> if unequal).</p>
+<p>Because <code>SimpleAllocator</code> is an equal allocator, it is legal to do the following:</p>
+<pre><code class="language-c++">SimpleAllocator&lt;double&gt; a1;
+SimpleAllocator&lt;double&gt; a2;
+
+double* ptr = a1.allocate(1);   // allocate a double with a1
+a2.deallocate(ptr, 1);          // deallocate the memory with a2
+</code></pre>
+<!--kg-card-end: markdown--><h2 id="example-1-a-stateless-cache-aligned-allocator">Example 1: A stateless cache-aligned allocator</h2><p>As an extension to our first stateless allocator which does nothing interesting, we will now implement an allocator that actually does something useful. In this case, our allocator will automatically eliminate false sharing in an STL container being accessed by multiple threads.</p><p>Briefly, the solution to false sharing is to align the shared memory locations such that they end up in different cache lines. On x86 CPUs, L1 cache lines are 64 bytes, so our allocator should allocate objects at 64 byte boundaries. Here is the code:</p><!--kg-card-begin: markdown--><pre><code class="language-c++">template &lt;typename T, size_t Alignment = 64&gt;
+class CacheAlignedAllocator {
+public:
+    using value_type = T;
+    using is_always_equal = std::true_type;
+
+    template &lt;typename U&gt;
+    struct rebind {
+        using other = CacheAlignedAllocator&lt;U, Alignment&gt;;
+    };
+
+    CacheAlignedAllocator() = default;
+
+    template &lt;typename U&gt;
+    CacheAlignedAllocator(const CacheAlignedAllocator&lt;U, Alignment&gt;&amp; other) {
+        (void) other;
+    }
+
+    T* allocate(size_t n) {
+        auto ptr = static_cast&lt;T*&gt;(aligned_alloc(Alignment, sizeof(T) * n));
+        if (ptr)
+            return ptr;
+
+        throw std::bad_alloc();
+    }
+
+    void deallocate(T* ptr, size_t n) {
+        (void) n;
+        free(ptr);
+    }
+};
+</code></pre>
+<p>For allocation, we use C++'s builtin function <code>aligned_alloc()</code>. Everything else is the same, except for the <code>struct rebind</code>. Typically, this struct is generated by the compiler automatically for us but because our allocator takes in more than one template argument (in case the user wants to supply a different alignment amount), we must manually define our own rebind struct (which is used by STL containers to create new allocators without having to call the copy constructor).</p>
+<p>You can now specify the custom allocator as a policy template argument to an STL container and verify that all allocations are indeed 64-byte aligned (by inserting a print statement in the <code>allocate</code> method):</p>
+<pre><code>std::vector&lt;int, CacheAlignedAllocator&lt;int&gt;&gt; vec;
+for (int i = 0; i &lt; 5; i++) {
+    vec.emplace_back(i);
+}
+</code></pre>
+<p>Running <a href="https://github.com/thealexcons/cpp-allocators/blob/master/cache_aligned_allocator.cc">this benchmark</a> I have prepared to demonstrate the effects of false sharing in a multi-threaded program, for 10 iterations, I obtain:</p>
+<pre><code>        std::allocator mean: 2470 ms
+CachedAlignedAllocator mean: 2192 ms
+</code></pre>
+<p>Measuring latency in this case may not be fully representative because it takes into account thread creation and context switching which adds jitter to the result. However, you can look at the L1 cache misses using <code>perf</code> on Linux and verify that we get less L1 cache misses using the custom allocator.</p>
+<!--kg-card-end: markdown--><h2 id="example-2-a-stateful-pool-allocator">Example 2: A stateful pool allocator</h2><p>Now, we look at a classic use case of custom memory allocators: a pool allocator. The goal of a pool-based allocator is to quickly allocate memory for a fixed-type objects while reducing internal fragmentation of memory.</p><!--kg-card-begin: markdown--><p>Pool allocators work by allocating large blocks of memory in advance and dividing this block for individual allocations. This means that memory allocation is much faster than calling <code>malloc()</code>, which is slow.</p>
+<p>Because a pool allocator has to manage a list of blocks, it is a <strong>stateful</strong> allocator (and therefore unequal).<br>
+Firstly, we need to create a <code>Pool</code> class that manages the memory of chunks of a given size. We use a stack of addresses to quickly pop an available address when we need to allocate an object and push back a newly available address when we deallocate an object at that address.</p>
+<pre><code class="language-c++">template &lt;size_t BlockSize, size_t ReservedBlocks = 0&gt;
+class Pool {
+private:
+    size_t size_;
+    std::stack&lt;void *&gt; addrs_;
+    std::stack&lt;std::unique_ptr&lt;uint8_t[]&gt;&gt; blocks_;
+
+public:
+    explicit Pool(size_t size) : size_(size) {
+        for (size_t i = 0; i &lt; ReservedBlocks; i++) {
+            add_more_addresses();
+        }
+    }
+
+    void* allocate() {
+        if (addrs_.empty()) {
+            add_more_addresses();
+        }
+
+        auto ptr = addrs_.top();
+        addrs_.pop();
+        return ptr;
+    }
+
+    void deallocate(void *ptr) {
+        addrs_.push(ptr);
+    }
+
+    void rebind(size_t size) {
+        if (!(addrs_.empty() &amp;&amp; blocks_.empty())) {
+            std::cerr &lt;&lt; &quot;Cannot call Pool::rebind() after alloc\n&quot;;
+            abort();
+        }
+
+        size_ = size;
+    }
+
+private:
+    // Refill the address stack by allocating another block of memory
+    void add_more_addresses() {
+        auto block = std::make_unique&lt;uint8_t[]&gt;(BlockSize);
+        auto total_size = BlockSize % size_ == 0 ? 
+                            BlockSize : BlockSize - size_;
+
+        // Divide the block into chunks of size_ bytes, and add their addrs
+        for (size_t i = 0; i &lt; total_size; i += size_) {
+            addrs_.push(&amp;block.get()[i]);
+        }
+
+        // Keep the memory of the block alive by adding it to our stack
+        blocks_.push(std::move(block));
+    }
+};
+</code></pre>
+<p>In our constructor, we specify the fixed-size number of bytes we want to allocate (this will be passed in later as <code>sizeof(T)</code>) and we reserve memory blocks if specified by the template parameter.</p>
+<p>Importantly, we use a <code>std::unique_ptr</code> to automatically free the memory when we are done using the allocator.</p>
+<p>The <code>allocate()</code> method will simply return the first address on the stack in O(1) time (unless the stack is empty) and our <code>deallocate()</code> just puts back the address onto the stack.<br>
+We also provide a <code>rebind()</code> method to keep STL containers happy.</p>
+<p>Now, we need to create the actual <code>PoolAllocator</code> class which manages a <code>Pool</code> instance:</p>
+<pre><code class="language-c++">template &lt;typename T, size_t BlockSize = 4096, size_t ReservedBlocks = 0&gt;
+class PoolAllocator {
+private:
+    using PoolType = Pool&lt;BlockSize, ReservedBlocks&gt;;
+    std::shared_ptr&lt;PoolType&gt; pool_;
+
+public:
+    using value_type = T;
+    using is_always_equal = std::false_type;
+
+    template &lt;typename U&gt;
+    struct rebind {
+        using other = PoolAllocator&lt;U, BlockSize, ReservedBlocks&gt;;
+    };
+
+    PoolAllocator() : pool_(std::make_shared&lt;PoolType&gt;(sizeof(T))) {}
+
+    // Rebind copy constructor
+    template &lt;typename U&gt;
+    PoolAllocator(const PoolAllocator&lt;U&gt;&amp; other) : pool_{other.pool_} {
+        pool_-&gt;rebind(sizeof(T));
+    }
+
+    PoolAllocator(const PoolAllocator&amp; other) = default;
+    PoolAllocator(PoolAllocator&amp;&amp; other) = default;
+    PoolAllocator&amp; operator=(const PoolAllocator&amp; other) = default;
+    PoolAllocator&amp; operator=(PoolAllocator&amp;&amp; other) = default;
+
+    T* allocate(size_t n) {
+        if (n &gt; 1) {
+            return static_cast&lt;T*&gt;(malloc(sizeof(T) * n));
+        }
+
+        return static_cast&lt;T*&gt;(pool_-&gt;allocate());
+    }
+
+    void deallocate(T* ptr, size_t n) {
+        if (n &gt; 1) {
+            free(ptr);
+            return;
+        }
+
+        pool_-&gt;deallocate(ptr);
+    }
+};
+</code></pre>
+<p>Our allocator class looks very similar as our previous one. The constructor creates a <code>Pool</code> instance which will be used to allocate and deallocate memory. The <code>allocate()</code> and <code>deallocate()</code> methods simply pass the call onto the <code>pool_</code> instance. Note that our allocator only supports individual allocations: if n &gt; 1, we simply use the standard allocator via <code>malloc()</code> and <code>free()</code>.</p>
+<p>We must also provide a <code>struct rebind</code> because our class has more than one template parameter and a rebind copy constructor which just passes the call down to the <code>pool_</code> instance. We also need to provide default copy/move constructors and assignment operators.</p>
+<p>Our benchmark in this case will measure the time it takes to add 1 million integers to a <code>std::list</code> (see the code <a href="https://github.com/thealexcons/cpp-allocators/blob/master/pool_allocator.cc">here</a>). We compare the standard allocator, a pool allocator with no reserved blocks in-advance, one with 100 reserved blocks and another with 1000 reserved blocks:</p>
+<pre><code>std::allocator&lt;int&gt;            mean: 21611 μs
+PoolAllocator&lt;int&gt;             mean: 12885 μs
+PoolAllocator&lt;int, 4096, 100&gt;  mean: 5718 μs
+PoolAllocator&lt;int, 4096, 1000&gt; mean: 5686 μs
+</code></pre>
+<p>Even without reserving blocks in advance, we get around x2 speed up! And as expected, if we reserve blocks in advance, we get a x3.85 speed up.</p>
+<!--kg-card-end: markdown--><!--kg-card-begin: markdown--><p>Pool allocators are so useful that they were <a href="https://en.cppreference.com/w/cpp/memory/synchronized_pool_resource">introduced</a> into the standard library in C++17. You can access them in the <code>&lt;pmr&gt;</code> header (<em>polymorphic memory resource</em>) and use them nicely with STL containers.</p>
+<!--kg-card-end: markdown--><h2 id="example-3-a-huge-page-allocator">Example 3: A <em>huge page</em> allocator</h2><p>Our final example is just to show off how you can write highly-tailored allocators using a specific feature of Linux: transparent huge pages.</p><p>Typically, the OS will allocate memory in fixed-size pages of 4 kB. However, if we have a very large in-memory data structure spanning multiple pages which may be randomly accessed (such as a hash table), we are likely going to suffer from a high number of TLB misses during virtual address translation. The OS can reduce this miss rate by allocating large-sized pages, known as <strong>huge pages</strong>. These are typically 2 MB, but can be even larger.</p><!--kg-card-begin: markdown--><p>A <em>transparent</em> huge page is one that was promoted automatically by the OS from a regular page into a huge page, and is a Linux-specific feature. We can enable THP support for a memory range using the <code>madvise()</code> system call, however Linux does not guarantee that a HP will be allocated. We can use <code>posix_memalign</code> to hint at the kernel that we really want to allocate a huge page. Let's see the code:</p>
+<pre><code class="language-c++">template &lt;typename T, size_t HugePageSize = 1 &lt;&lt; 21&gt; 
+class THPAllocator {
+public:
+    using is_always_equal = std::true_type;
+    using value_type = T;
+
+    template &lt;typename U&gt;
+    struct rebind {
+        using other = THPAllocator&lt;U, HugePageSize&gt;;
+    };
+
+    THPAllocator() = default;
+
+    template &lt;class U&gt;
+    constexpr THPAllocator(const THPAllocator&lt;U&gt;&amp; other) {
+        (void) other;
+    }
+
+    T *allocate(size_t n) {
+        if (n &gt; std::numeric_limits&lt;std::size_t&gt;::max() / sizeof(T)) {
+            throw std::bad_alloc();
+        }
+        const auto total_size = n * sizeof(T);
+        void *p = nullptr;
+        if (posix_memalign(&amp;p, HugePageSize, total_size) != 0) {
+            throw std::bad_alloc();
+        }
+        
+        madvise(p, total_size, MADV_HUGEPAGE);
+        if (p == nullptr) {
+            throw std::bad_alloc();
+        }
+
+        return static_cast&lt;T *&gt;(p);
+    }
+
+    void deallocate(T *p, size_t n) { 
+        (void) n;
+        free(p); 
+    }
+};
+</code></pre>
+<p>Our <a href="https://github.com/thealexcons/cpp-allocators/blob/master/huge_page_allocator.cc">benchmark</a> is very simple: we try to add 8 MB worth of integers to a vector and see how long it takes. We obtain:</p>
+<pre><code>std::allocator mean: 4414 μs
+THPAllocator   mean: 2584 μs
+</code></pre>
+<p>It is also worth noting that requesting the kernel to promote a regular page into a huge page may cause latency spikes, because the kernel needs to update the page tables accordingly. Also, the kernel may decide to compact unused pages in order to create a huge page on demand, which can also lead to latency spikes. If you try running the benchmark with <code>iterations = 1</code>, you will see the large variance.</p>
+<!--kg-card-end: markdown--><h2 id="closing-thoughts">Closing thoughts</h2><p>We have seen how C++ easily lets us implement custom memory allocators for different applications and use cases. The C++ allocator API can go into much more detail and I am not an expert on memory allocators, this post is just an example highlighting the benefits of memory allocators and a simple demo on how to implement them.</p>
+          </div>
+          <footer class="post-footer">
+            <div itemprop="author" itemscope itemtype="http://schema.org/Person" class="post-author">
+              <div class="post-author-info">
+                <p class="post-info">
+                  <b class="post-info-title">Published on</b>
+                  <time class="post-date">January 21, 2025</time>
+                </p>
+              </div>
+            </div>
+            <div class="post-social">
+              <h4 class="post-footer-heading">Spread the word</h4>
+              <a href="index.html#" data-action="share-twitter"><i class="fa fa-fw fa-lg fa-twitter"></i></a>
+              <a href="index.html#" data-action="share-facebook"><i class="fa fa-fw fa-lg fa-facebook"></i></a>
+            </div>
+          </footer>
+        </section>
+    </article>
+
+    <footer role="contentinfo" class="footer">
+  <p><small>© 2022. All Rights Reserved.</small></p>
+</footer>
+  </div>
+</section>
+
+
+
+          </div>
+        </div>
+      </div>
+    </main>
+
+    
+
+    <script src="../assets/js/foot-scripts.min.js%3Fv=283ec8ee3a"></script>
+
+    <script type="text/javascript">
+
+      if(GHOSTIUM.haveGA) {
+        (function(g,h,o,s,t,z){g.GoogleAnalyticsObject=s;g[s]||(g[s]=
+        function(){(g[s].q=g[s].q||[]).push(arguments)});g[s].s=+new Date;
+        t=h.createElement(o);z=h.getElementsByTagName(o)[0];
+        t.src='//www.google-analytics.com/analytics.js';
+        z.parentNode.insertBefore(t,z)}(window,document,'script','ga'));
+        ga('create',ga_ua);ga('send','pageview');
+      }
+
+      if(GHOSTIUM.haveDisqus) {
+        (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = '//' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+        }());
+      }
+    </script>
+  </body>
+</html>
