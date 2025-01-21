@@ -190,6 +190,84 @@
                 margin-bottom: 0.5rem;
             }
         }
+
+        .article-preview {
+            border-bottom: 1px solid var(--secondary);
+            padding: 1.5rem 0;
+            transition: transform 0.2s;
+        }
+
+        .article-preview:hover {
+            transform: translateX(5px);
+        }
+
+        .article-meta {
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            font-family: monospace;
+        }
+
+        .read-more {
+            display: inline-block;
+            margin-top: 1rem;
+            color: var(--accent);
+            text-decoration: none;
+            border: 1px solid var(--accent);
+            padding: 0.3rem 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .read-more:hover {
+            background: var(--accent);
+            color: var(--background);
+        }
+
+        /* Profile section styling */
+        .profile-section {
+            display: flex;
+            gap: 2rem;
+            padding: 2rem;
+            background: var(--code-bg);
+            border-radius: 4px;
+        }
+
+        .profile-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .social-links {
+            margin-top: 2rem;
+        }
+
+        .social-links a {
+            margin-right: 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            background: var(--code-bg);
+            transition: all 0.2s;
+        }
+
+        .social-links a:hover {
+            color: var(--accent);
+        }
+
+        /* Code block styling */
+        pre[class*="language-"] {
+            border-radius: 4px;
+            background: var(--code-bg) !important;
+        }
+
+        code:not([class*="language-"]) {
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
