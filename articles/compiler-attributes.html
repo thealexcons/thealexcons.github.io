@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alex Constantin-Gomez</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
     <header>
@@ -25,15 +25,12 @@
             </div>
 
             <div class="article-content">
-                <p>Asynchronous programming is a fundamental concept in JavaScript that allows us to handle time-consuming operations without blocking the main thread. In this article, we'll explore the modern approach to handling asynchronous operations using async/await syntax.</p>
+                <p>Modern C++ has introduced several compiler attributes that can significantly impact performance when used correctly. Let's explore some of the most interesting ones that you might not be using yet, but probably should be!</p>
 
-                <h2>The Evolution of Asynchronous JavaScript</h2>
-                <p>Before we dive into async/await, let's briefly look at how we handled asynchronous operations in the past. This context will help us understand why async/await is such a powerful addition to the language.</p>
+                <h2>[[likely]] and [[unlikely]]</h2>
+                <p>These attributes, introduced in C++20, provide branch prediction hints to the compiler. While modern CPU branch predictors are quite sophisticated, there are cases where we know better than the hardware about the probability of a condition.</p>
 
-                <h3>The Callback Era</h3>
-                <p>Traditionally, asynchronous operations were handled using callbacks:</p>
-
-                <pre><code class="language-javascript">fetchData(function(error, data) {
+                <pre><code class="language-cpp">fetchData(function(error, data) {
     if (error) {
         console.error('Error:', error);
         return;
@@ -83,13 +80,6 @@
                 </ul>
             </div>
 
-            <footer class="article-footer">
-                <div class="article-tags">
-                    <span class="tag">javascript</span>
-                    <span class="tag">async</span>
-                    <span class="tag">programming</span>
-                </div>
-            </footer>
         </article>
     </main>
 
