@@ -20,69 +20,114 @@
     <main>
         <article>
             <div class="article-header">
-                <h1 class="article-title">Understanding Async/Await in JavaScript</h1>
-                <div class="article-meta">$ posted: 18.01.2025 | javascript</div>
+                <h1 class="article-title">Implementing pattern matching in C++17</h1>
+                <div class="article-meta">posted: 21.05.2022</div>
             </div>
 
             <div class="article-content">
-                <p>Asynchronous programming is a fundamental concept in JavaScript that allows us to handle time-consuming operations without blocking the main thread. In this article, we'll explore the modern approach to handling asynchronous operations using async/await syntax.</p>
+                <p>Pattern matching is one of my favourite language features available in many modern programming languages, especially functional languages like Haskell or Scala. Unfortunately, it is not a feature that is part of the C++ language standard. However, with recent updates to the C++ language and standard library, it is possible to implement very primitive pattern matching constructs. I will explain how to do this in under 50 lines of code using some of the features introduced in C++17.
+                </p>
 
-                <h2>The Evolution of Asynchronous JavaScript</h2>
-                <p>Before we dive into async/await, let's briefly look at how we handled asynchronous operations in the past. This context will help us understand why async/await is such a powerful addition to the language.</p>
+                <h2>Visiting variants</h2>
+                <p>The main introductions to C++17 that allows us to easily implement pattern matching are std::variant and std::visit. A variant is simply a type-safe union that allows us to store one of multiple specified types in a memory location at any given time.
+                    To operate on the value stored in the variant, we typically use the std::visit function, which invokes a user-supplied functor on the data, dispatching to the correct type.</p>
 
-                <h3>The Callback Era</h3>
-                <p>Traditionally, asynchronous operations were handled using callbacks:</p>
+                <p>The usage is simple, but verbose and cumbersome:</p>
+                <pre><code class="language-cpp">std::variant<int, bool, double> v{42};
+struct visitor
+{
+    void operator()(int d)     { std::cout << "int" << std::endl; }
+    void operator()(bool d)    { std::cout << "bool" << std::endl; }
+    void operator()(double d)  { std::cout << "double" << std::endl; }
+};
 
-                <pre><code class="language-javascript">fetchData(function(error, data) {
-    if (error) {
-        console.error('Error:', error);
-        return;
+std::visit(visitor{}, v);  // Prints "int"</code></pre>
+
+                <p>Alternatively, we use a constexpr if statement inside a generic lambda:</p>
+                <pre><code class="language-cpp">std::visit([](auto d)
+{
+    if constexpr(std::is_same_v<decltype(d), int>)
+        std::cout << "int" << std::endl;
+    else if constexpr(std::is_same_v<decltype(d), bool>)
+        std::cout << "bool" << std::endl;
+    // ...
+}, v);</code></pre>
+                <p>Although both techniques do the job, we would like something shorter and more readable, that resembles pattern matching.</p>
+
+                <h2>Implementing a match statement</h2>
+                <p>The syntax I am aiming to implement looks like this:                </p>
+
+                <pre><code class="language-cpp">std::variant<double, int, std::string> val = "test";
+match(val).on(
+{
+    [](const std::string& str)    { std::cout << "str: " << str << std::endl; },
+    [](int i)                     { std::cout << "int: " << i << std::endl; },
+    [](double d)                  { std::cout << "double: " << d << std::endl; }
+);</code></pre>
+                <p>I find this syntax much more readable and it resembles a functional programming language.</p>
+                <p>As you can see, we take in a set of lambdas, where each one handles a particular type allowed by the variant. So, how do we implement this list of lambdas?
+                    The first important observation is to realise that a lambda is just a struct with the operator() overloaded. Therefore, if we could "compose" multiple structs together such that we have a single struct containing an overloaded operator() for each type of the variant, the problem would be solved.
+                    How do we "compose" these structs together then? Well, we can just use inheritance! This technique is called an overload set.</p>
+
+                <p>As mentioned, we can compose functors through inheritance:</p>
+                <pre><code class="language-cpp">struct visitor_int { void operator()(int x) { std::cout << "int"; } };
+struct visitor_float { void operator()(float x) { std::cout << "float"; } };
+
+// Compose both functors via inheritance:
+struct visitor : visitor_int, visitor_float
+{
+    using visitor_int::operator();
+    using visitor_float::operator();
+};</code></pre>
+
+            <p>Note that we explicitly have the two using statements to bring the overloads into the same scope of visitor in order to enable overload resolution. This is because a call to visitor::operator() would be ambiguous because the compiler performs name resolution before overload resolution.
+                Given the example above, we can generalise the pattern by templating over the base classes:</p>
+            
+            <pre><code class="language-cpp">template <typename A, typename B>
+struct overload_set : A, B
+{
+    using A::operator();
+    using B::operator();
+};</code></pre>  
+               
+            <p>Furthermore, we can generalise this pattern even more by using variadic templates in conjunction with the variadic using statements which were introduced in C++17:</p>
+            
+            <pre><code class="language-cpp">template <typename... Functors>
+struct overload_set : Functors...
+{
+    using Functors::operator()...;
+};</code></pre>  
+
+            <p>We can now instantiate an overload_set with as many lambdas as we want:</p>
+            
+            <pre><code class="language-cpp">overload_set os{
+    [](int d)   { ...; },
+    [](float d) { ...; }
+};</code></pre> 
+
+            <h2>Putting everything together</h2>
+            <p>The difficult part is done now, we just need to put everything together to implement the syntax described earlier. We can do this by creating a generic class which accepts a variant and performs visitation using an overloaded set:            </p>
+            
+            <pre><code class="language-cpp">template <typename Variant>
+class match
+{
+public:
+    constexpr explicit match(const Variant& variant) : d_variant(variant) {}
+
+    template<typename... Fs>
+    constexpr auto on(Fs... fs)
+    {
+        return std::visit(overload_set<Fs...> { std::forward<Fs>(fs)... }, d_variant);
     }
-    processData(data, function(error, processedData) {
-        if (error) {
-            console.error('Error:', error);
-            return;
-        }
-        console.log('Success:', processedData);
-    });
-});</code></pre>
 
-                <p>This approach often led to deeply nested callbacks, a situation known as "callback hell."</p>
+private:
+    Variant d_variant;
+};</code></pre> 
 
-                <h3>Promises: A Step Forward</h3>
-                <p>Promises provided a more structured way to handle asynchronous operations:</p>
-
-                <pre><code class="language-javascript">fetchData()
-    .then(data => processData(data))
-    .then(processedData => {
-        console.log('Success:', processedData);
-    })
-    .catch(error => {
-        console.error('Error:', error);
-    });</code></pre>
-
-                <h2>Enter Async/Await</h2>
-                <p>Async/await syntax provides a way to write asynchronous code that looks and behaves more like synchronous code. Here's the same operation using async/await:</p>
-
-                <pre><code class="language-javascript">async function handleData() {
-    try {
-        const data = await fetchData();
-        const processedData = await processData(data);
-        console.log('Success:', processedData);
-    } catch (error) {
-        console.error('Error:', error);
-    }
-}</code></pre>
-
-                <h2>Key Concepts</h2>
-                <ul>
-                    <li>The <code>async</code> keyword declares a function that will work with asynchronous operations</li>
-                    <li>The <code>await</code> keyword can only be used inside an async function</li>
-                    <li>await pauses the execution until the promise resolves</li>
-                    <li>Error handling uses traditional try/catch blocks</li>
-                </ul>
+            <p>In very few lines of code, we have implemented a simple but powerful pattern matching construct that allows us to dispatch based on the type of the value of a variant.
+                <br>
+                The full code with usage examples can be found on <a href="https://github.com/thealexcons/pattern-matching-cpp">my GitHub</a>.</p>
             </div>
-
         </article>
     </main>
 
