@@ -20,37 +20,74 @@
     <main>
         <article>
             <div class="article-header">
-                <h1 class="article-title">Understanding Async/Await in JavaScript</h1>
-                <div class="article-meta">$ posted: 18.01.2025 | javascript</div>
+                <h1 class="article-title">Writing custom memory allocators in C++</h1>
+                <div class="article-meta">posted: 30.12.2022</div>
             </div>
 
             <div class="article-content">
-                <p>Asynchronous programming is a fundamental concept in JavaScript that allows us to handle time-consuming operations without blocking the main thread. In this article, we'll explore the modern approach to handling asynchronous operations using async/await syntax.</p>
+                <p>An essential part of memory management is how memory is allocated and eventually deallocated. By default, memory in C++ programs is allocated using the new keyword and deallocated using the delete keyword. However, sometimes we want more control over how and where objects are allocated/deallocated to avoid issues like fragmentation.
+                    <br>
+                    The C++ standard library allows programmers to write custom allocators which can be used by STL containers for dynamic memory allocation, rather than using the standard allocator.
+                    <br>
+                    Allocators can be used to improve performance-related issues such as fragmentation, per-thread allocation and NUMA-friendly allocation.
+                    <br>
+                    We will see some examples in this post and their benefits, but before we should mention the different properties and requirements an allocator should have in C++.</p>
 
-                <h2>The Evolution of Asynchronous JavaScript</h2>
-                <p>Before we dive into async/await, let's briefly look at how we handled asynchronous operations in the past. This context will help us understand why async/await is such a powerful addition to the language.</p>
+                <h2>The allocator API</h2>
+                <p>In C++, an allocator is a template class that allocates and deallocates memory for a specific type T. There are two types of allocators:
+                </p>
 
-                <h3>The Callback Era</h3>
-                <p>Traditionally, asynchronous operations were handled using callbacks:</p>
+                <ul>
+                    <li><b>Equal</b> allocators: two equal allocators can be used to allocate and deallocate memory for a type T interchangeably. These are usually <b>stateless</b> allocators.</li>
+                    <li><b>Unequal</b> allocators: two unequeal allocators cannot be used to allocate and deallocate memory interchangeably. These are usually <b>stateful</b> allocators.</li>
+                </ul>
 
-                <pre><code class="language-javascript">fetchData(function(error, data) {
-    if (error) {
-        console.error('Error:', error);
-        return;
+                <p>An allocator class should offer a `T* allocate(size_t n)` method to allocate n number of objects of type T and a `void deallocate(T* p, size_t n)` method to deallocate an object of type T.</p>
+
+                <p>Additionally, we need to provide an empty copy constructor using a template of type U for full compatibility with STL containers, because the container may also need to allocate internal objects (such as linked list nodes) in addition to objects of type T.                </p>
+
+                <p>The most simple allocator using malloc() can be implemented as follows:                </p>
+
+            <pre><code class="language-cpp">template &lt;typename T&gt;
+class SimpleAllocator {
+public:
+    using value_type = T;
+    using is_always_equal = std::true_type; // bypass writing the equality operators == and !=
+
+    SimpleAllocator() = default;
+    
+    template &lt;typename U&gt;
+    SimpleAllocator(const SimpleAllocator&lt;U&gt;& other) {
+        (void) other;
     }
-    processData(data, function(error, processedData) {
-        if (error) {
-            console.error('Error:', error);
-            return;
-        }
-        console.log('Success:', processedData);
-    });
-});</code></pre>
+    
+    T* allocate(size_t n) {
+        auto ptr = static_cast&lt;T*&gt;(malloc(sizeof(T) * n));
+        if (ptr)
+            return ptr;
+            
+        throw std::bad_alloc();
+    }
+    
+    void deallocate(T* ptr, size_t n) {
+        (void) n;
+        free(ptr);
+    }
+};</code></pre> 
 
-                <p>This approach often led to deeply nested callbacks, a situation known as "callback hell."</p>
+                <p>Because SimpleAllocator is an equal allocator, it is legal to do the following:                </p>
 
-                <h3>Promises: A Step Forward</h3>
-                <p>Promises provided a more structured way to handle asynchronous operations:</p>
+            <pre><code class="language-cpp">SimpleAllocator&lt;double&gt; a1;
+SimpleAllocator&lt;double&gt; a2;
+
+double* ptr = a1.allocate(1);   // allocate a double with a1
+a2.deallocate(ptr, 1);          // deallocate the memory with a2
+</code></pre> 
+
+                <h2>Example 1: A stateless cache-aligned allocator</h2>
+                <p>As an extension to our first stateless allocator which does nothing interesting, we will now implement an allocator that actually does something useful. In this case, our allocator will automatically eliminate false sharing in an STL container being accessed by multiple threads.                </p>
+
+                <p>Briefly, the solution to false sharing is to align the shared memory locations such that they end up in different cache lines. On x86 CPUs, L1 cache lines are 64 bytes, so our allocator should allocate objects at 64 byte boundaries. Here is the code:                </p>                
 
                 <pre><code class="language-javascript">fetchData()
     .then(data => processData(data))
