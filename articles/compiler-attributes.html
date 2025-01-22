@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alex Constantin-Gomez</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <header>
@@ -21,7 +21,7 @@
         <article>
                     <div class="article-header">
                         <h1 class="article-title">Performance-oriented C++ attributes</h1>
-                        <div class="article-meta">$ posted: 18.01.2025 | c++</div>
+                        <div class="article-meta">posted: 18.01.2025 | c++</div>
                     </div>
                     <div class="article-content">
                         <p>Modern C++ has introduced several compiler attributes that can significantly impact performance when used correctly. Let's explore some of the ones I find most interesting.</p>
@@ -30,45 +30,45 @@
                         <p>These attributes, introduced in C++20, provide branch prediction hints to the compiler. While modern CPU branch predictors are quite sophisticated, there are cases where we know better than the hardware about the probability of a condition.</p>
         
                         <pre><code class="language-cpp">bool processMessage(const Message& msg) {
-            if (msg.type == MessageType::Error) [[unlikely]] {
-                // Complex error handling code
-                logError(msg);
-                return false;
-            }
-            
-            // Normal message processing
-            processNormalMessage(msg);
-            return true;
-        }</code></pre>
+    if (msg.type == MessageType::Error) [[unlikely]] {
+        // Complex error handling code
+        logError(msg);
+        return false;
+    }
+        
+    // Normal message processing
+    processNormalMessage(msg);
+    return true;
+}</code></pre>
         
                         <p>In this example, we're telling the compiler that the error case is rare. This allows the compiler to optimise the code layout, by moving the error handling assembly code after the "normal" message handling logic. This is useful because of how speculative execution works, whereby the instructions inside the branch are processed inside the CPU pipeline in advance. If we know that the error case is unlikely, then it will start speculatively executing the normal case, reducing the chances of mis-speculation and a costly pipeline flush. The performance impact is most noticeable in hot loops where branch prediction matters significantly.</p>
         
                         <h2>[[flatten]]</h2>
-                        <p>The `flatten` attribute suggests that the compiler should inline the function and all functions called within it, essentially "flattening" the call hierarchy. This can be particularly powerful for small, performance-critical code paths.</p>
+                        <p>The [[flatten]] attribute suggests that the compiler should inline the function and all functions called within it, essentially "flattening" the call hierarchy. This can be particularly powerful for small, performance-critical code paths.</p>
         
                         <pre><code class="language-cpp">[[flatten]] float computePhysics(const GameObject& obj) {
-            float velocity = computeVelocity(obj);
-            float acceleration = computeAcceleration(obj);
-            float position = updatePosition(velocity, acceleration);
-            return position;
-        }</code></pre>
+    float velocity = computeVelocity(obj);
+    float acceleration = computeAcceleration(obj);
+    float position = updatePosition(velocity, acceleration);
+    return position;
+}</code></pre>
         
-                        <p>Here, all three helper functions will likely be inlined into `computePhysics`. This eliminates function call overhead and enables better optimisation since the compiler can see all the code at once. This is different to the <pre>[[always_inline]]</pre> attribute because it inlines the called functions in the body, rather than the call itself. In other words, we are inline the compute functions above without forcing them to be inline everywhere else in the code.</p>
+                        <p>Here, all three helper functions will likely be inlined into computePhysics(). This eliminates function call overhead and enables better optimisation since the compiler can see all the code at once. This is different to the [[always_inline]] attribute because it inlines the called functions in the body, rather than the call itself. In other words, we are inline the compute functions above without forcing them to be inline everywhere else in the code.</p>
         
                         <h2>[[hot]]</h2>
-                        <p>The `[[hot]]` attribute tells the compiler that a function is likely to be executed frequently. This can influence code layout and optimisation decisions. It's particularly useful when profiling has identified critical paths that aren't obvious to the compiler.</p>
+                        <p>The [[hot]] attribute tells the compiler that a function is likely to be executed frequently. This can influence code layout and optimisation decisions. It's particularly useful when profiling has identified critical paths that aren't obvious to the compiler.</p>
         
                         <pre><code class="language-cpp">class ParticleSystem {
-            [[hot]] void updateParticles() {
-                for (auto& particle : particles) {
-                    particle.position += particle.velocity * deltaTime;
-                    particle.velocity += particle.acceleration * deltaTime;
-                    particle.life -= deltaTime;
-                }
+        [[hot]] void updateParticles() {
+            for (auto& particle : particles) {
+                particle.position += particle.velocity * deltaTime;
+                particle.velocity += particle.acceleration * deltaTime;
+                particle.life -= deltaTime;
             }
-            
-            // Other less frequently called methods...
-        };</code></pre>
+        }
+        
+        // Other less frequently called methods...
+    };</code></pre>
         
                         <p>This tells the compiler to prioritise optimisation of this function, potentially using more aggressive inlining, loop unrolling, or vectorisation strategies. The compiler might also try to keep this function's code in the instruction cache.</p>
         
@@ -76,15 +76,15 @@
                         <p>While technically not standardised yet, many modern compilers support this attribute. It lets you tell the compiler that a certain condition is always true, enabling more aggressive optimisations.</p>
         
                         <pre><code class="language-cpp">void processArray(int* arr, size_t size) {
-            [[assume(size % 4 == 0)]];  // Size is always a multiple of 4
-            [[assume(reinterpret_cast<uintptr_t>(arr) % 16 == 0)]];  // Array is 16-byte aligned
-            
-            for (size_t i = 0; i < size; i += 4) {
-                // Compiler can now use SIMD instructions more effectively
-                // knowing about alignment and size constraints
-                processChunk(&arr[i]);
-            }
-        }</code></pre>
+        [[assume(size % 4 == 0)]];  // Size is always a multiple of 4
+        [[assume(reinterpret_cast<uintptr_t>(arr) % 16 == 0)]];  // Array is 16-byte aligned
+        
+        for (size_t i = 0; i < size; i += 4) {
+            // Compiler can now use SIMD instructions more effectively
+            // knowing about alignment and size constraints
+            processChunk(&arr[i]);
+        }
+    }</code></pre>
         
                         <p>This is powerful but dangerous - if your assumption is wrong, you'll get undefined behavior. However, when used correctly, it can enable significant optimisations, especially for SIMD operations where alignment and size requirements are important.</p>
         
