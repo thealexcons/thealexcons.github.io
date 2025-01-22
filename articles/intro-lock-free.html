@@ -95,7 +95,7 @@
 
                 <p>For example, we can implement a seemingly complex operation atomic and lock-free using a CAS loop. Below, we implement a function that atomically doubles a value if odd or increments it if even, and returns the old value:                </p>
 
-<pre><code class="language-cpp">int atomicDoubleOrIncrement(std::atomic<int>& shared) {
+<pre><code class="language-cpp">int atomicDoubleOrIncrement(std::atomic&lt;int&gt;& shared) {
     int old = shared.load();
     int new;
     do {
