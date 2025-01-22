@@ -77,7 +77,7 @@
         
                         <pre><code class="language-cpp">void processArray(int* arr, size_t size) {
         [[assume(size % 4 == 0)]];  // Size is always a multiple of 4
-        [[assume(reinterpret_cast<uintptr_t>(arr) % 16 == 0)]];  // Array is 16-byte aligned
+        [[assume(reinterpret_cast&lt;uintptr_t&gt;(arr) % 16 == 0)]];  // Array is 16-byte aligned
         
         for (size_t i = 0; i < size; i += 4) {
             // Compiler can now use SIMD instructions more effectively

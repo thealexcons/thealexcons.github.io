@@ -60,10 +60,10 @@ public:
     
     void scale(int factor) { impl()->scale(factor); }
 private:
-    Impl* impl() { return static_cast<Impl*>(this); }
+    Impl* impl() { return static_cast&lt;Impl*&gt;(this); }
 };
 
-class SquareCRTP : public IShapeCRTP<SquareCRTP> {
+class SquareCRTP : public IShapeCRTP&lt;SquareCRTP&gt; {
     double m_length;
     
 public:
@@ -85,7 +85,7 @@ static void DynamicDispatchBenchmark(benchmark::State &state) {
 }
 
 static void StaticDispatchBenchmark(benchmark::State &state) {
-    IShapeCRTP<SquareCRTP>* square = new SquareCRTP(10);
+    IShapeCRTP&lt;SquareCRTP&gt;* square = new SquareCRTP(10);
     for (auto _ : state) {
         square->scale(3);
     }
