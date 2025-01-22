@@ -20,67 +20,91 @@
     <main>
         <article>
             <div class="article-header">
-                <h1 class="article-title">Understanding Async/Await in JavaScript</h1>
-                <div class="article-meta">$ posted: 18.01.2025 | javascript</div>
+                <h1 class="article-title">Performance comparison between virtual calls and static dispatch</h1>
+                <div class="article-meta">posted: 10.04.2022</div>
             </div>
 
             <div class="article-content">
-                <p>Asynchronous programming is a fundamental concept in JavaScript that allows us to handle time-consuming operations without blocking the main thread. In this article, we'll explore the modern approach to handling asynchronous operations using async/await syntax.</p>
 
-                <h2>The Evolution of Asynchronous JavaScript</h2>
-                <p>Before we dive into async/await, let's briefly look at how we handled asynchronous operations in the past. This context will help us understand why async/await is such a powerful addition to the language.</p>
+                <h2>Background</h2>
 
-                <h3>The Callback Era</h3>
-                <p>Traditionally, asynchronous operations were handled using callbacks:</p>
+                <p>Virtual functions in C++ is the most popular way to achieve polymorphism. Any class with a virtual member function declaration will cause the compiler to add an a pointer to every instance of the class. This pointer is known as the virtual table pointer, which points to a table of virtual functions for that particular class. Thus, whenever a virtual function is invoked, the pointer is dereferenced to jump to the correct function. This all occurs at runtime, so it is known as dynamic dispatch (or dynamic polymorphism). Most OOP languages such as Java follow the same strategy; in fact, it is the only form of dispatching that is supported (for instance methods). However, C++ allows for another form of dispatching: static dispatch.</p>
 
-                <pre><code class="language-javascript">fetchData(function(error, data) {
-    if (error) {
-        console.error('Error:', error);
-        return;
+                <p>Static dispatch essentially means that the compiler knows in advance what method to jump to. Not only does this avoid the extra layer of indirection (because there is no vtable pointer), it also allows for methods to be inlined which gives room of even more performance benefits (as opposed to virtual functions which cannot be inlined). An important but final benefit is that less space is used per instance because we do not need to store a pointer. This can be beneficial for small objects, since more instances can fit in cache.                </p>
+
+                <p>In C++, static polymorphism is achieved through the Curiously Recurring Template Pattern (CRTP). As a refresher, the template pattern allows you to delegate specific behaviour in an algorithm to subclasses. With CRTP, the base class is a template class where the template type is a derived class, so it has direct access to the hook method implemented in the derived class. The derived class then inherits from the base class specialised with the derived class itself.</p>
+                
+                <h2>Comparison</h2>
+                <p>Let's start with dynamic dispatch, by creating a simple interface that we want our subclasses to implement:</p>
+
+<pre><code class="language-cpp">struct IShape {
+    virtual double area() = 0;
+    virtual void scale(int factor) = 0;
+};
+
+class Square : public IShape {
+    double m_length;
+    
+public:
+    Square(double len) : m_length(len) {}
+    double area() override { return m_length * m_length; }
+    void scale(int factor) override { m_length *= factor; }
+};</code></pre>
+
+                <p>Now, let's implement the equivalent code using CRTP:</p>
+
+<pre><code class="language-cpp">template<typename Impl>
+class IShapeCRTP {
+public:
+    double area() { return impl()->area(); }
+    
+    void scale(int factor) { impl()->scale(factor); }
+private:
+    Impl* impl() { return static_cast<Impl*>(this); }
+};
+
+class SquareCRTP : public IShapeCRTP<SquareCRTP> {
+    double m_length;
+    
+public:
+    SquareCRTP(double len) : m_length(len) {}
+    double area() { return m_length * m_length; }
+    void scale(int factor) { m_length *= factor; }
+};</code></pre>
+
+                <p>Now, let's write the benchmarks for both versions. I am using Google Benchmark:                </p>
+
+<pre><code class="language-cpp">#include <benchmark/benchmark.h>
+
+static void DynamicDispatchBenchmark(benchmark::State &state) {
+    IShape* square = new Square(10);
+    for (auto _ : state) {
+        square->scale(3);
     }
-    processData(data, function(error, processedData) {
-        if (error) {
-            console.error('Error:', error);
-            return;
-        }
-        console.log('Success:', processedData);
-    });
-});</code></pre>
+    delete square;
+}
 
-                <p>This approach often led to deeply nested callbacks, a situation known as "callback hell."</p>
-
-                <h3>Promises: A Step Forward</h3>
-                <p>Promises provided a more structured way to handle asynchronous operations:</p>
-
-                <pre><code class="language-javascript">fetchData()
-    .then(data => processData(data))
-    .then(processedData => {
-        console.log('Success:', processedData);
-    })
-    .catch(error => {
-        console.error('Error:', error);
-    });</code></pre>
-
-                <h2>Enter Async/Await</h2>
-                <p>Async/await syntax provides a way to write asynchronous code that looks and behaves more like synchronous code. Here's the same operation using async/await:</p>
-
-                <pre><code class="language-javascript">async function handleData() {
-    try {
-        const data = await fetchData();
-        const processedData = await processData(data);
-        console.log('Success:', processedData);
-    } catch (error) {
-        console.error('Error:', error);
+static void StaticDispatchBenchmark(benchmark::State &state) {
+    IShapeCRTP<SquareCRTP>* square = new SquareCRTP(10);
+    for (auto _ : state) {
+        square->scale(3);
     }
-}</code></pre>
+    delete square;
+}
 
-                <h2>Key Concepts</h2>
-                <ul>
-                    <li>The <code>async</code> keyword declares a function that will work with asynchronous operations</li>
-                    <li>The <code>await</code> keyword can only be used inside an async function</li>
-                    <li>await pauses the execution until the promise resolves</li>
-                    <li>Error handling uses traditional try/catch blocks</li>
-                </ul>
+BENCHMARK(DynamicDispatchBenchmark);
+BENCHMARK(StaticDispatchBenchmark);
+
+BENCHMARK_MAIN();</code></pre>
+
+                <p>Running the benchmarks, I got:</p>
+                <pre><code class="language-cpp">DynamicDispatchBenchmark       CPU time: 15.01 ns
+StaticDispatchBenchmark        CPU time: 3.04 ns</code></pre>
+
+                <p>That's about a x5 speedup! Obviously, as with any microbenchmark, you need to take the results with a pinch of salt, since there are many factors that could affect performance in a real application which are not taken into account in an isolated example like the one above. You can see the assembly output <a href="https://godbolt.org/z/f5e4a9Kfn">here</a> for yourself.            </p>
+
+                <p>Either way, from both a practical and theoretical point of view, we see that static dispatch via CRTP provides several benefits that can lead to performance increases, compared with dynamic dispatch.</p>
+
             </div>
 
         </article>
