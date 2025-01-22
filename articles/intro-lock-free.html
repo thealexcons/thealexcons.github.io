@@ -20,67 +20,107 @@
     <main>
         <article>
             <div class="article-header">
-                <h1 class="article-title">Understanding Async/Await in JavaScript</h1>
-                <div class="article-meta">$ posted: 18.01.2025 | javascript</div>
+                <h1 class="article-title">Introduction to lock-free programming</h1>
+                <div class="article-meta">posted: 03.01.2022</div>
             </div>
 
             <div class="article-content">
-                <p>Asynchronous programming is a fundamental concept in JavaScript that allows us to handle time-consuming operations without blocking the main thread. In this article, we'll explore the modern approach to handling asynchronous operations using async/await syntax.</p>
 
-                <h2>The Evolution of Asynchronous JavaScript</h2>
-                <p>Before we dive into async/await, let's briefly look at how we handled asynchronous operations in the past. This context will help us understand why async/await is such a powerful addition to the language.</p>
+                <h2>Introduction</h2>
 
-                <h3>The Callback Era</h3>
-                <p>Traditionally, asynchronous operations were handled using callbacks:</p>
+                <p>Lock-free programming is often described as programming without locking/unlocking mutexes. While this is partially true, it is only a "subset" of the actual definition. A lock-free program refers to code that cannot cause the system to lock up (deadlock or livelock). In other words, there is no possible scheduling of threads and executions that would lead to a locked-up state. This means that the whole system makes progress as a whole, i.e.: at least one thread makes progress. As long as a program is able to invoke lock-free operations, the number of completed invocations keeps increasing no matter what.</p>
 
-                <pre><code class="language-javascript">fetchData(function(error, data) {
-    if (error) {
-        console.error('Error:', error);
-        return;
-    }
-    processData(data, function(error, processedData) {
-        if (error) {
-            console.error('Error:', error);
-            return;
+                <p>Another widely-used phrase is "wait-free". This refers to a program where every thread makes progress and execute in a finite number of steps, regardless of contention. In that sense, wait-free is a strict subset of lock-free and generally, writing wait-free code is harder. However, this post will focus on lock-free programming.                </p>
+                
+                <h2>Memory models</h2>
+                <p>A memory model describes how memory is read from and written to and in what order. This typically means how reads and writes may be reordered and what memory barriers can be used to prevent certain reorderings. We can choose to describe how memory behaves at a hardware level or at a software level.</p>
+
+                <h3>Hardware memory models</h3>
+                
+                <p>The hardware memory model will characterise the CPU's ability to reorder memory operations. Stronger memory models refer to those that provide more guarantees about how memory operations may be reordered (i.e.: the stronger the model, the less types of reorderings it admits). The strongest memory model is sequential consistency (SC) however no architecture implements SC at a hardware level because it is too expensive and prevents many optimisations.                </p>
+
+                <p>In x86, the memory model is known as <b>Total Store Order</b> (TSO). It allows write-read reordering on different memory locations, i.e.: <i>a read from location x can be reordered before a write to y</i>. This effect is achieved through <b>store buffering</b>: all writes are enqueued in a per-core store buffer, allowing later reads to "overtake" these buffered writes. These buffered writes will eventually be dequeued at non-deterministic times (a type of out-of-order execution), unless a memory barrier is issued to indicate that all writes should be immediately flushed.</p>
+
+                <p>A weaker memory model is <b>Partial Store Order</b> (PSO), which is like TSO but allows write-write reordering, and an even weaker memory model is <b>Relaxed Store Ordering</b> (RSO), which allows even more reorderings. These weaker models can be found on SPARC, ARM and Alpha architectures. Therefore, x86 (TSO) is actually known to be a fairly strong memory model, as it only allows one type of reordering.                </p>
+
+                <h3>Software memory models</h3>
+
+                <p>We can abstract away from the hardware and instead look at how we want our software to behave with regard to memory reorderings. Each architecture will have a set of memory barriers in their instruction set (mfence on x86) which allow us to prevent reordering in our code (more on memory barriers in the next section).                </p>
+
+                <p>We may choose to manually issue memory fence instructions, however it is common for the compiler to do that work for us when using a higher-level constructs, such as the std::atomic library in C++. We can tag atomic operations with a specific memory order and the compiler will emit the necessary memory barriers.                </p>
+
+                <p>An idealised and high-level memory model is <b>sequential consistency</b>. SC corresponds to interleaving semantics and makes it easy to reason about your program's correctness. However, as mentioned earlier, CPUs do not implement SC at the hardware level because it prevents optimisations. The way SC memory operations are achieved is by emitting a full memory barrier immediately after it, so that other threads see the effect of the operation. In C++, all atomic operations are marked as SC by default.</p>
+
+                <p>On the other extreme, we can choose not to insert any memory barriers at all and let the CPU reorder the instructions as it sees fit. In C/C++, this is known as relaxed ordering (not related to the RMO hardware model). The semantics of relaxed-tagged atomic operations will correspond to the memory model of the hardware.                </p>
+
+                <p>Somewhere in between the two previous models, we have <b>acquire-release</b> ordering. This model will provide an ordering between atomic stores and loads. An atomic store can be tagged as release and an atomic load can be tagged as acquire. <b>Acquire</b> semantics prevent memory reordering of the read-acquire operation with any other read or write operation that follows it.
+                    <b>Release</b> semantics prevent memory reordering of the write-release operation with any other read or write operation that precedes it.
+                    Depending on the architecture, acquire-release operations may require fewer memory barriers than SC.</p>
+
+                <p>Acquire-release orderings are perfect for message passing and can be used to implement <a href="https://github.com/thealexcons/spinlock/blob/master/active_backoff_spinlock.h">spinlocks</a>. In fact, the term "acquiring/releasing a lock" actually comes from the acquire-release memory semantics.                </p>
+
+                <h3>Type of memory barriers</h3>
+                <p>In lock-free programming, we want to make sure that the correct memory barriers are used/emitted by the compiler so that our program behaves correctly and enforces an ordering of instructions.                </p>
+                <p>Since we have four types of reordering (read-read, read-write, write-read and write-write), we would require four memory fences. In practice, we usually don't see all four. For example, Linux provides three barriers that are sufficient for its supported architectures:                </p>
+
+                <ul>
+                    <li>smp_mb(), full memory barrier that orders both reads and writes (any operation before the barrier will be committed to memory before any operation after the barrier).</li>
+                    <li>smp_rmb(), read memory barrier that orders reads.</li>
+                    <li>smp_wmb(), write memory barrier that orders writes..</li>
+                </ul>
+
+                <p>For more details on memory barriers and hardware, I would strongly recommend reading <a href="http://www.rdrop.com/users/paulmck/scalability/paper/whymb.2010.07.23a.pdf">this paper</a> by Paul E. McKenney.                </p>
+
+                <h2>Atomic operations</h2>
+
+                <p>In a multithreaded program where multiple threads read/write shared memory, we need to somehow synchronise accesses to avoid unwanted data races. This can be done with mutexes or with the appropriate synchronisation provided by atomic operations.                </p>
+
+                <p>An atomic operation is one that manipulates memory in an indivisible way, such that no threads can observe the operation half-complete. On most processors nowadays, many operations are already atomic. For example, reads and writes of native types (those that fit in the memory bus, such as integers) which are aligned are atomic. For example, on x86 reads and writes to 64-bit-sized locations are atomic. This why you can write code such as std::atomic<int> x or std::atomic<long> y in C++: the compiler will align these memory locations and just use standard MOV operations to atomically read the values. You can use std::atomic<T>::is_lock_free in C++ to verify that the type T can be atomically read/written without using locks.                </p>
+
+                <p>You can go a step further than loading and storing data atomically by using <b>Read-Modify-Write</b> (RMW) operations. As the name indicates, they allow you to perform more complex transactions atomically. They're crucial in lock-free code when multiple threads want to write to the same location because when they attempt an RMW on that location, the RMWs effectively become linearisable and execute one-at-a-time, in a line.                </p>
+
+                <h2>Compare-And-Swap</h2>
+
+                <p>The most important RMW operation is compare-and-swap (CAS). A CAS operation will compare the shared atomic value with an expected value, and if equal, it will update the shared location with a new value. In this case, the CAS is successful and returns true. If not equal, we say the CAS is unsuccessful and it returns false.                </p>
+
+                <p>It is the only RMW that is absolutely essential, since every other RMW such as fetch_add() or exchange() can be implemented using CAS.                </p>
+
+                <p>Often, we use <b>CAS loops</b> to repeatedly attempt a transaction until successful. This pattern typically involves:</p>
+
+                <ol>
+                    <li>Copying a shared variable to a local variable (private to other threads)</li>
+                    <li>Performing some speculative work using the local variable</li>
+                    <li>Attempting to publish any changes to the shared variable using CAS</li>
+                </ol>
+
+                <p>For example, we can implement a seemingly complex operation atomic and lock-free using a CAS loop. Below, we implement a function that atomically doubles a value if odd or increments it if even, and returns the old value:                </p>
+
+<pre><code class="language-cpp">int atomicDoubleOrIncrement(std::atomic<int>& shared) {
+    int old = shared.load();
+    int new;
+    do {
+        if (old % 2 != 0) {
+            new = old * 2;
+        } else {
+            new = old + 1;
         }
-        console.log('Success:', processedData);
-    });
-});</code></pre>
-
-                <p>This approach often led to deeply nested callbacks, a situation known as "callback hell."</p>
-
-                <h3>Promises: A Step Forward</h3>
-                <p>Promises provided a more structured way to handle asynchronous operations:</p>
-
-                <pre><code class="language-javascript">fetchData()
-    .then(data => processData(data))
-    .then(processedData => {
-        console.log('Success:', processedData);
-    })
-    .catch(error => {
-        console.error('Error:', error);
-    });</code></pre>
-
-                <h2>Enter Async/Await</h2>
-                <p>Async/await syntax provides a way to write asynchronous code that looks and behaves more like synchronous code. Here's the same operation using async/await:</p>
-
-                <pre><code class="language-javascript">async function handleData() {
-    try {
-        const data = await fetchData();
-        const processedData = await processData(data);
-        console.log('Success:', processedData);
-    } catch (error) {
-        console.error('Error:', error);
-    }
+    } while (!shared.compare_exchange_strong(old, new));
+    return old;
 }</code></pre>
 
-                <h2>Key Concepts</h2>
-                <ul>
-                    <li>The <code>async</code> keyword declares a function that will work with asynchronous operations</li>
-                    <li>The <code>await</code> keyword can only be used inside an async function</li>
-                    <li>await pauses the execution until the promise resolves</li>
-                    <li>Error handling uses traditional try/catch blocks</li>
-                </ul>
+                <p>The idea is that if the CAS fails due to a modification to shared by another thread, the local variable old gets updated to be the latest value of shared (in C++, if a CAS fails then it will update the expected parameter to contain the latest value) and we try again. You can think of the body of a CAS loop as a protected section that cannot be seen by other threads because we perform work using the local variable.                </p>
+
+                <p>The code above qualifies as lock-free because:</p>
+
+                <ol>
+                    <li>if the CAS succeeds, then we break from the loop and the thread makes progress                    </li>
+                    <li>if the CAS fails, then it must be because another thread updated the value first and their CAS was successful, so there is another thread that makes progress                    </li>
+                </ol>
+
+                <p>However, this function is not wait-free because only one thread can make progress at any given time and a thread's progress will depend on contention.                </p>
+
+                <h2>Closing thoughts</h2>
+                <p>Lock-free programming isn't easy; it requires you to have a good understanding of a variety of topics that go all the way down to the hardware. Hopefully this post has provided an introduction into memory models, atomic, instruction reordering and provided some design patterns to writing lock-free algorithms.</p>
             </div>
 
         </article>
