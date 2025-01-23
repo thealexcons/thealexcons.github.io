@@ -65,8 +65,8 @@
 
                 <ul>
                     <li><tt>smp_mb()</tt>, full memory barrier that orders both reads and writes (any operation before the barrier will be committed to memory before any operation after the barrier).</li>
-                    <li>smp_rmb(), read memory barrier that orders reads.</li>
-                    <li>smp_wmb(), write memory barrier that orders writes..</li>
+                    <li><tt>smp_rmb()</tt>, read memory barrier that orders reads.</li>
+                    <li><tt>smp_wmb()</tt>, write memory barrier that orders writes.</li>
                 </ul>
 
                 <p>For more details on memory barriers and hardware, I would strongly recommend reading <a href="http://www.rdrop.com/users/paulmck/scalability/paper/whymb.2010.07.23a.pdf">this paper</a> by Paul E. McKenney.                </p>
