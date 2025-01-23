@@ -41,10 +41,10 @@
     return true;
 }</code></pre>
         
-                        <p>In this example, we're telling the compiler that the error case is rare. This allows the compiler to optimise the code layout, by moving the error handling assembly code after the "normal" message handling logic. This is useful because of how speculative execution works, whereby the instructions inside the branch are processed inside the CPU pipeline in advance. If we know that the error case is unlikely, then it will start speculatively executing the normal case, reducing the chances of mis-speculation and a costly pipeline flush. The performance impact is most noticeable in hot loops where branch prediction matters significantly.</p>
+                        <p>In this example, we're telling the compiler that the error case is rare. This allows the compiler to optimise the code layout, by moving the error handling assembly code after the normal message handling logic. This is useful because of how speculative execution works, whereby the instructions inside the branch are processed inside the CPU pipeline in advance. If we know that the error case is unlikely, then it will start speculatively executing the normal case, reducing the chances of mis-speculation and a costly pipeline flush. The performance impact is most noticeable in hot loops where branch prediction matters significantly.</p>
         
                         <h2>[[flatten]]</h2>
-                        <p>The [[flatten]] attribute suggests that the compiler should inline the function and all functions called within it, essentially "flattening" the call hierarchy. This can be particularly powerful for small, performance-critical code paths.</p>
+                        <p>The <tt>[[flatten]]</tt> attribute suggests that the compiler should inline the function and all functions called within it, essentially "flattening" the call hierarchy. This can be particularly powerful for small, performance-critical code paths.</p>
         
                         <pre><code class="language-cpp">[[flatten]] float computePhysics(const GameObject& obj) {
     float velocity = computeVelocity(obj);
@@ -53,10 +53,10 @@
     return position;
 }</code></pre>
         
-                        <p>Here, all three helper functions will likely be inlined into computePhysics(). This eliminates function call overhead and enables better optimisation since the compiler can see all the code at once. This is different to the [[always_inline]] attribute because it inlines the called functions in the body, rather than the call itself. In other words, we are inline the compute functions above without forcing them to be inline everywhere else in the code.</p>
+                        <p>Here, all three helper functions will likely be inlined into <tt>computePhysics()</tt>. This eliminates function call overhead and enables better optimisation since the compiler can see all the code at once. This is different to the <tt>[[always_inline]]</tt> attribute because it inlines the called functions in the body, rather than the call itself. In other words, we are inline the compute functions above without forcing them to be inline everywhere else in the code.</p>
         
                         <h2>[[hot]]</h2>
-                        <p>The [[hot]] attribute tells the compiler that a function is likely to be executed frequently. This can influence code layout and optimisation decisions. It's particularly useful when profiling has identified critical paths that aren't obvious to the compiler.</p>
+                        <p>The <tt>[[hot]]</tt> attribute tells the compiler that a function is likely to be executed frequently. This can influence code layout and optimisation decisions. It's particularly useful when profiling has identified critical paths that aren't obvious to the compiler.</p>
         
                         <pre><code class="language-cpp">class ParticleSystem {
         [[hot]] void updateParticles() {
