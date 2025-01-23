@@ -64,7 +64,7 @@
                 <p>Since we have four types of reordering (read-read, read-write, write-read and write-write), we would require four memory fences. In practice, we usually don't see all four. For example, Linux provides three barriers that are sufficient for its supported architectures:                </p>
 
                 <ul>
-                    <li>smp_mb(), full memory barrier that orders both reads and writes (any operation before the barrier will be committed to memory before any operation after the barrier).</li>
+                    <li><tt>smp_mb()</tt>, full memory barrier that orders both reads and writes (any operation before the barrier will be committed to memory before any operation after the barrier).</li>
                     <li>smp_rmb(), read memory barrier that orders reads.</li>
                     <li>smp_wmb(), write memory barrier that orders writes..</li>
                 </ul>
