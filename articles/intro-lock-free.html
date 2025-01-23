@@ -45,9 +45,9 @@
 
                 <h3>Software memory models</h3>
 
-                <p>We can abstract away from the hardware and instead look at how we want our software to behave with regard to memory reorderings. Each architecture will have a set of memory barriers in their instruction set (mfence on x86) which allow us to prevent reordering in our code (more on memory barriers in the next section).                </p>
+                <p>We can abstract away from the hardware and instead look at how we want our software to behave with regard to memory reorderings. Each architecture will have a set of memory barriers in their instruction set (<tt>mfence</tt> on x86) which allow us to prevent reordering in our code (more on memory barriers in the next section).                </p>
 
-                <p>We may choose to manually issue memory fence instructions, however it is common for the compiler to do that work for us when using a higher-level constructs, such as the std::atomic library in C++. We can tag atomic operations with a specific memory order and the compiler will emit the necessary memory barriers.                </p>
+                <p>We may choose to manually issue memory fence instructions, however it is common for the compiler to do that work for us when using a higher-level constructs, such as the <tt>atomic</tt> header in C++. We can tag atomic operations with a specific memory order and the compiler will emit the necessary memory barriers.                </p>
 
                 <p>An idealised and high-level memory model is <b>sequential consistency</b>. SC corresponds to interleaving semantics and makes it easy to reason about your program's correctness. However, as mentioned earlier, CPUs do not implement SC at the hardware level because it prevents optimisations. The way SC memory operations are achieved is by emitting a full memory barrier immediately after it, so that other threads see the effect of the operation. In C++, all atomic operations are marked as SC by default.</p>
 
@@ -75,7 +75,7 @@
 
                 <p>In a multithreaded program where multiple threads read/write shared memory, we need to somehow synchronise accesses to avoid unwanted data races. This can be done with mutexes or with the appropriate synchronisation provided by atomic operations.                </p>
 
-                <p>An atomic operation is one that manipulates memory in an indivisible way, such that no threads can observe the operation half-complete. On most processors nowadays, many operations are already atomic. For example, reads and writes of native types (those that fit in the memory bus, such as integers) which are aligned are atomic. For example, on x86 reads and writes to 64-bit-sized locations are atomic. This why you can write code such as std::atomic&lt;x&gt; or std::atomic&lt;y&gt; in C++: the compiler will align these memory locations and just use standard MOV operations to atomically read the values. You can use std::atomic&lt;T&gt;::is_lock_free in C++ to verify that the type T can be atomically read/written without using locks.                </p>
+                <p>An atomic operation is one that manipulates memory in an indivisible way, such that no threads can observe the operation half-complete. On most processors nowadays, many operations are already atomic. For example, reads and writes of native types (those that fit in the memory bus, such as integers) which are aligned are atomic. For example, on x86 reads and writes to 64-bit-sized locations are atomic. This why you can write code such as <tt>std::atomic&lt;x&gt;</tt> or <tt>std::atomic&lt;y&gt;</tt> in C++: the compiler will align these memory locations and just use standard MOV operations to atomically read the values. You can use std::atomic&lt;T&gt;::is_lock_free in C++ to verify that the type T can be atomically read/written without using locks.                </p>
 
                 <p>You can go a step further than loading and storing data atomically by using <b>Read-Modify-Write</b> (RMW) operations. As the name indicates, they allow you to perform more complex transactions atomically. They're crucial in lock-free code when multiple threads want to write to the same location because when they attempt an RMW on that location, the RMWs effectively become linearisable and execute one-at-a-time, in a line.                </p>
 
@@ -83,7 +83,7 @@
 
                 <p>The most important RMW operation is compare-and-swap (CAS). A CAS operation will compare the shared atomic value with an expected value, and if equal, it will update the shared location with a new value. In this case, the CAS is successful and returns true. If not equal, we say the CAS is unsuccessful and it returns false.                </p>
 
-                <p>It is the only RMW that is absolutely essential, since every other RMW such as fetch_add() or exchange() can be implemented using CAS.                </p>
+                <p>It is the only RMW that is absolutely essential, since every other RMW such as <tt>fetch_add()</tt> or <tt>exchange()</tt> can be implemented using CAS.                </p>
 
                 <p>Often, we use <b>CAS loops</b> to repeatedly attempt a transaction until successful. This pattern typically involves:</p>
 
