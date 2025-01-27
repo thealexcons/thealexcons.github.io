@@ -6,8 +6,6 @@
     <title>Alex Constantin-Gomez</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/pdf.js-viewer@0.2.8/pdf.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/pdf.js-viewer@0.2.8/viewer.min.css" rel="stylesheet">
 
 </head>
 <body>
@@ -24,21 +22,24 @@
         <article>
             <div class="article-header">
                 <h1 class="article-title">Accelerating data center communication patterns with eBPF</h1>
-                <div class="article-meta">$ posted: 18.01.2025 | javascript</div>
+                <div class="article-meta">posted: 27.06.2023</div>
             </div>
 
             <div class="article-content">
-                <p>Asynchronous programming is a fundamental concept in JavaScript that allows us to handle time-consuming operations without blocking the main thread. In this article, we'll explore the modern approach to handling asynchronous operations using async/await syntax.</p>
+                <p>I explore the use of eBPF (extended Berkeley Packet Filter) as a solution to improve the communication efficiency in highly-distributed data center environments, focusing on minimising the
+                    overhead caused by user-kernel context switches and excessive traversals of the kernel networking
+                    stack. By leveraging eBPF, which allows user-defined code execution inside the Linux kernel, it
+                    becomes possible to move logic from the application in user-space into the kernel and achieve significant performance benefits.<br>
+                    The work presented focuses on accelerating scatter-gather workloads, which involve extensive communication between a coordinator machine and multiple worker nodes. I first explore the feasibility of using eBPF to accelerate this communication pattern, and then propose an eBPF-enabled
+                    scatter-gather network primitive called sgbpf available as a library for network applications.<br>
+                    Our experiments show that sgbpf outperforms the standard Linux-native I/O APIs (including
+                    state-of-the-art interfaces such as epoll and io_uring) by at least 42% both in terms of latency
+                    and throughput for fan-outs of all sizes, varying from as low as 10 nodes all the way up to over
+                    1000 workers</p>
 
-                <h2>The Evolution of Asynchronous JavaScript</h2>
-                <p>Before we dive into async/await, let's briefly look at how we handled asynchronous operations in the past. This context will help us understand why async/await is such a powerful addition to the language.</p>
+                <embed src="/meng-project-slides.pdf" width="100%" height="400" type="application/pdf">
 
-                <div class="pdfjs">
-                </div>
-              
-                <script>
-                PDFJS.webViewerLoad('/meng-project-slides.pdf');
-                </script>
+                <p>Code available <a href="https://github.com/thealexcons/sgbpf">here</a>.</p>
             </div>
 
         </article>
