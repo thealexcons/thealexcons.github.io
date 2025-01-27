@@ -29,15 +29,15 @@
                 <p>I explore the use of eBPF (extended Berkeley Packet Filter) as a solution to improve the communication efficiency in highly-distributed data center environments, focusing on minimising the
                     overhead caused by user-kernel context switches and excessive traversals of the kernel networking
                     stack. By leveraging eBPF, which allows user-defined code execution inside the Linux kernel, it
-                    becomes possible to move logic from the application in user-space into the kernel and achieve significant performance benefits.<br>
+                    becomes possible to move logic from the application in user-space into the kernel and achieve significant performance benefits.<br><br>
                     The work presented focuses on accelerating scatter-gather workloads, which involve extensive communication between a coordinator machine and multiple worker nodes. I first explore the feasibility of using eBPF to accelerate this communication pattern, and then propose an eBPF-enabled
-                    scatter-gather network primitive called sgbpf available as a library for network applications.<br>
+                    scatter-gather network primitive called sgbpf available as a library for network applications.<br><br>
                     Our experiments show that sgbpf outperforms the standard Linux-native I/O APIs (including
                     state-of-the-art interfaces such as epoll and io_uring) by at least 42% both in terms of latency
                     and throughput for fan-outs of all sizes, varying from as low as 10 nodes all the way up to over
                     1000 workers</p>
 
-                <embed src="/meng-project-slides.pdf" width="100%" height="400" type="application/pdf">
+                <embed src="/meng-project-slides.pdf" width="100%" height="500" type="application/pdf">
 
                 <p>Code available <a href="https://github.com/thealexcons/sgbpf">here</a>.</p>
             </div>
