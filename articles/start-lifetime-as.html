@@ -31,20 +31,20 @@
                 </p>
 
                 <pre><code class="language-cpp">struct __attribute__((packed)) MessageHeader {
-                    uint32_t seq_no;
-                    uint16_t msg_type;
-                    uint16_t msg_len;
-                };
-                
-                void onPacket(uint8_t *buffer, size_t size) {
-                    if (size < sizeof(MessageHeader)) return;
-                
-                    const auto *hdr = reinterpret_cast&lt;const MessageHeader *&gt;(buffer);
-                    if (hdr->msg_type == 0)
-                         foo();
-                    else
-                         bar();
-                }</code></pre>
+    uint32_t seq_no;
+    uint16_t msg_type;
+    uint16_t msg_len;
+};
+
+void onPacket(uint8_t *buffer, size_t size) {
+    if (size < sizeof(MessageHeader)) return;
+
+    const auto *hdr = reinterpret_cast&lt;const MessageHeader *&gt;(buffer);
+    if (hdr->msg_type == 0)
+         foo();
+    else
+         bar();
+}</code></pre>
 
                 <p>
                     Assuming correct alignment and field offsets, the code above looks correct. In fact, this code will work (or at least on most modern compilers). However, this 
@@ -74,7 +74,126 @@
                 </p>
 
                 <h2>Back to basics: object creation</h2>
+                <p>
+                    When we learn C++, we are taught that there are two steps involved when creating an object:
+                    <ol>
+                        <li><<b>Memory allocation</b>, to reserve storage for the object</li>
+                        <li><<b>Object construction</b>, to initialise a valid representation of the object</li>
+                    </ol>
+                    Whether you are allocating on the stack or on the heap, both are true (though stack allocation is "automatic" and handled by the compiler). An exception is the placement new operator,
+                where only the second step takes place (i.e.: we assume the memory has already been allocated).
+                </p>
+                <p>In reality, there is a third step which is often overlooked (and understandably so because it is transparent to us): <b>lifetime initialisation</b>. Whenever we call the constructor,
+                the compiler will also associate the object type with the underlying allocated memory, so that it can keep track of aliasing information. The following table summarises the three steps:</p>
+
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Memory Allocated</th>
+                            <th>Constructor Called</th>
+                            <th>Lifetime Started</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Stack</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                        </tr>
+                        <tr>
+                            <td>Heap</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                        </tr>
+                        <tr>
+                            <td>Placement New</td>
+                            <td>❌</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Object lifetimes</h2>
                 
+                <p>Now you might be asking yourself: <i>is there any way to only perform the third step, i.e.: initialise a lifetime for an object without calling the constructor?</i> If there was, then
+                it would solve the strict aliasing violation in the deserialisation program presented at the start of this article.</p>
+
+            <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Memory Allocated</th>
+                            <th>Constructor Called</th>
+                            <th>Lifetime Started</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Stack</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                        </tr>
+                        <tr>
+                            <td>Heap</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                        </tr>
+                        <tr>
+                            <td>Placement New</td>
+                            <td>❌</td>
+                            <td>✅</td>
+                            <td>✅</td>
+                        </tr>
+                        <tr>
+                            <td><tt>std::start_lifetime_as</tt></td>
+                            <td>❌</td>
+                            <td>❌</td>
+                            <td>✅</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <p>This is exactly what <tt>std::start_lifetime_as</tt> (introduced in C++23) aims to solve: it explicitly starts the lifetime of an object at a given memory location without invoking the constructor.
+                We can update our original program:</p>
+
+                <pre><code class="language-cpp">void onPacket(uint8_t *buffer, size_t size) {
+    if (size < sizeof(MessageHeader)) return;
+
+    const auto *hdr = std::start_lifetime_as&lt;const MessageHeader *&gt;(buffer);
+    if (hdr->msg_type == 0)
+         foo();
+    else
+         bar();
+}</code></pre>
+
+                <p>The function above does not break strict aliasing rules (as it ensures the object has a valid lifetime before use) and does not perform any copies. In fact,
+                the compiler should produce the exact same code as the original program, except that now the compiler is happy! 😄</p>
+
+                <h3>Compiler support</h3>
+                <p>
+                As of the time of writing (March 2025), no major compiler has implemented <tt>std::start_lifetime_as</tt>. An approximate implementation using C++20's <tt>std::memmove</tt>
+                    (which implicitly starts a lifetime at the destination buffer) is a workaround (<a href="https://stackoverflow.com/questions/76445860/implementation-of-stdstart-lifetime-as" target="_blank">source</a>):
+                </p>
+
+                <pre><code class="language-cpp">template&lt;class T&gt;
+requires (std::is_trivially_copyable_v&lt;T&gt; && std::is_implicit_lifetime_v&lt;T&gt;)
+T* start_lifetime_as(void* p) noexcept {
+    return std::launder(static_cast&lt;T*&gt;(std::memmove(p, p, sizeof(T))));
+}</code></pre>
+                
+                <p>However, the <tt>std::start_lifetime_as</tt> construct is guaranteed to not access the memory, whereas the code above does not provide the same guarantees.</p>
+
+                <br>
+                <p>
+                    C++23’s <tt>std::start_lifetime_as</tt> provides a robust solution for safely treating raw byte buffers as structured objects while avoiding undefined behavior. 
+                    Although it is not yet widely implemented, its introduction marks a significant advancement in memory management and type safety in modern C++ development.
+                </p>
         </article>
     </main>
 
