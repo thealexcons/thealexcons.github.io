@@ -58,7 +58,7 @@ void onPacket(uint8_t *buffer, size_t size) {
                 <p>The safe way to solve the problem without violating strict aliasing is to use <tt>memcpy</tt>:</p>
 
                 <pre><code class="language-cpp">MessageHeader hdr;
-                    std::memcpy(&hdr, buffer, sizeof(MessageHeader));</code></pre>
+std::memcpy(&hdr, buffer, sizeof(MessageHeader));</code></pre>
 
                 <p>Modern compilers often optimise memcpy to generate efficient code, especially for small structs (however, there is no guarantee of this).</p>
                 
@@ -69,7 +69,7 @@ void onPacket(uint8_t *buffer, size_t size) {
 
                 <p>While this method avoids aliasing issues, it unnecessarily calls the constructor of MessageHeader, even when the buffer already contains a valid object representation.</p>
 
-                <p>None of the two solutions above are ideal: we simply want to move pointers around and treat the memory as if it already was an object of type T. To understand how to solve this
+                <p>None of the two solutions above are ideal: we simply want to move pointers around and treat the memory as if it already was an object of type <tt>MessageHeader</tt>. To understand how to solve this
                     problem without invoking undefined behaviour, we need to first understand object lifetimes in C++. 
                 </p>
 
@@ -77,16 +77,19 @@ void onPacket(uint8_t *buffer, size_t size) {
                 <p>
                     When we learn C++, we are taught that there are two steps involved when creating an object:
                     <ol>
-                        <li><<b>Memory allocation</b>, to reserve storage for the object</li>
-                        <li><<b>Object construction</b>, to initialise a valid representation of the object</li>
+                        <li><b>Memory allocation</b>, to reserve storage for the object</li>
+                        <li><b>Object construction</b>, to initialise a valid representation of the object</li>
                     </ol>
                     Whether you are allocating on the stack or on the heap, both are true (though stack allocation is "automatic" and handled by the compiler). An exception is the placement new operator,
                 where only the second step takes place (i.e.: we assume the memory has already been allocated).
                 </p>
+
+                <h2>Object lifetimes</h2>
+
                 <p>In reality, there is a third step which is often overlooked (and understandably so because it is transparent to us): <b>lifetime initialisation</b>. Whenever we call the constructor,
                 the compiler will also associate the object type with the underlying allocated memory, so that it can keep track of aliasing information. The following table summarises the three steps:</p>
 
-                <table border="1">
+            <table border="1" style="text-align: center; align: center; margin: 0px auto;">
                     <thead>
                         <tr>
                             <th>Method</th>
@@ -116,13 +119,11 @@ void onPacket(uint8_t *buffer, size_t size) {
                         </tr>
                     </tbody>
                 </table>
-
-                <h2>Object lifetimes</h2>
                 
                 <p>Now you might be asking yourself: <i>is there any way to only perform the third step, i.e.: initialise a lifetime for an object without calling the constructor?</i> If there was, then
                 it would solve the strict aliasing violation in the deserialisation program presented at the start of this article.</p>
 
-            <table border="1">
+            <table border="1" style="text-align: center; align: center; margin: 0px auto;">
                     <thead>
                         <tr>
                             <th>Method</th>
@@ -158,6 +159,8 @@ void onPacket(uint8_t *buffer, size_t size) {
                         </tr>
                     </tbody>
                 </table>
+
+                <br>
                 
                 <p>This is exactly what <tt>std::start_lifetime_as</tt> (introduced in C++23) aims to solve: it explicitly starts the lifetime of an object at a given memory location without invoking the constructor.
                 We can update our original program:</p>
@@ -187,7 +190,7 @@ T* start_lifetime_as(void* p) noexcept {
     return std::launder(static_cast&lt;T*&gt;(std::memmove(p, p, sizeof(T))));
 }</code></pre>
                 
-                <p>However, the <tt>std::start_lifetime_as</tt> construct is guaranteed to not access the memory, whereas the code above does not provide the same guarantees.</p>
+                <p>However, the <tt>std::start_lifetime_as</tt> construct is guaranteed to not access the memory, whereas the code above does not provide the same guarantees (although in practice, the access is likely to be optimised out).</p>
 
                 <br>
                 <p>
