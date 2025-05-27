@@ -96,16 +96,16 @@
                 <p>For example, we can implement a seemingly complex operation atomic and lock-free using a CAS loop. Below, we implement a function that atomically doubles a value if odd or increments it if even, and returns the old value:                </p>
 
 <pre><code class="language-cpp">int atomicDoubleOrIncrement(std::atomic&lt;int&gt;& shared) {
-    int old = shared.load();
-    int new;
+    int old_val = shared.load();
+    int new_val;
     do {
-        if (old % 2 != 0) {
-            new = old * 2;
+        if (old_val % 2 != 0) {
+            new_val = old_val * 2;
         } else {
-            new = old + 1;
+            new_val = old_val + 1;
         }
-    } while (!shared.compare_exchange_strong(old, new));
-    return old;
+    } while (!shared.compare_exchange_strong(old_val, new_val));
+    return old_val;
 }</code></pre>
 
                 <p>The idea is that if the CAS fails due to a modification to shared by another thread, the local variable old gets updated to be the latest value of shared (in C++, if a CAS fails then it will update the expected parameter to contain the latest value) and we try again. You can think of the body of a CAS loop as a protected section that cannot be seen by other threads because we perform work using the local variable.                </p>
